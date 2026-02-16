@@ -1,0 +1,274 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────
+// APPLICATION ROLES
+// ──────────────────────────────────────────────
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(50)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  platformAdmins PlatformAdmin[]
+  tenantUsers    TenantUser[]
+
+  @@map("roles")
+}
+
+// ──────────────────────────────────────────────
+// PLATFORM ADMIN (manages tenants)
+// ──────────────────────────────────────────────
+
+model PlatformAdmin {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash")
+  displayName  String?  @map("display_name") @db.VarChar(200)
+  roleId       String   @map("role_id") @db.Uuid
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  role    Role     @relation(fields: [roleId], references: [id])
+  tenants Tenant[]
+
+  @@map("platform_admins")
+}
+
+// ──────────────────────────────────────────────
+// TENANT / WHITELABEL
+// ──────────────────────────────────────────────
+
+model Tenant {
+  id             String   @id @default(uuid()) @db.Uuid
+  slug           String   @unique @db.VarChar(80)
+  name           String   @db.VarChar(200)
+  primaryColor    String?  @map("primary_color") @db.VarChar(7)
+  secondaryColor  String?  @map("secondary_color") @db.VarChar(7)
+  headerTextColor String?  @map("header_text_color") @db.VarChar(7)
+  subtextColor    String?  @map("subtext_color") @db.VarChar(7)
+  logoUrl         String?  @map("logo_url")
+  faviconUrl      String?  @map("favicon_url")
+  isActive       Boolean  @default(true) @map("is_active")
+  retentionDays  Int      @default(365) @map("retention_days")
+  createdById    String   @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  createdBy      PlatformAdmin   @relation(fields: [createdById], references: [id])
+  tenantUsers    TenantUser[]
+  questionnaires Questionnaire[]
+  respondents    Respondent[]
+  auditLogs      AuditLog[]
+
+  @@map("tenants")
+}
+
+// ──────────────────────────────────────────────
+// TENANT USERS (owner + admins)
+// ──────────────────────────────────────────────
+
+model TenantUser {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  email        String   @db.VarChar(255)
+  passwordHash String   @map("password_hash")
+  displayName  String?  @map("display_name") @db.VarChar(200)
+  roleId       String   @map("role_id") @db.Uuid
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role           Role            @relation(fields: [roleId], references: [id])
+  questionnaires Questionnaire[]
+
+  @@unique([tenantId, email])
+  @@map("tenant_users")
+}
+
+// ──────────────────────────────────────────────
+// QUESTIONNAIRE DEFINITION
+// ──────────────────────────────────────────────
+
+model Questionnaire {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  slug        String    @db.VarChar(120)
+  title       String    @db.VarChar(255)
+  description String?
+  isPublished Boolean   @default(false) @map("is_published")
+  publishedAt DateTime? @map("published_at")
+  createdById String    @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy   TenantUser   @relation(fields: [createdById], references: [id])
+  sections    Section[]
+  submissions Submission[]
+
+  @@unique([tenantId, slug])
+  @@map("questionnaires")
+}
+
+model Section {
+  id              String @id @default(uuid()) @db.Uuid
+  questionnaireId String @map("questionnaire_id") @db.Uuid
+  code            String? @db.VarChar(20)
+  title           String @db.VarChar(255)
+  description     String?
+  displayOrder    Int    @default(0) @map("display_order")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  questionnaire Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  questions     Question[]
+
+  @@map("sections")
+}
+
+model Question {
+  id           String  @id @default(uuid()) @db.Uuid
+  sectionId    String  @map("section_id") @db.Uuid
+  code         String? @db.VarChar(40)
+  prompt       String
+  helpText     String? @map("help_text")
+  isRequired   Boolean @default(true) @map("is_required")
+  displayOrder Int     @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  section          Section            @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  options          QuestionOption[]
+  submissionAnswers SubmissionAnswer[]
+
+  @@map("questions")
+}
+
+model QuestionOption {
+  id           String  @id @default(uuid()) @db.Uuid
+  questionId   String  @map("question_id") @db.Uuid
+  label        String
+  groupLabel   String? @map("group_label") @db.VarChar(100)
+  displayOrder Int     @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  question          Question           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  submissionAnswers SubmissionAnswer[]
+
+  @@map("question_options")
+}
+
+// ──────────────────────────────────────────────
+// RESPONDENTS & EMAIL VERIFICATION
+// ──────────────────────────────────────────────
+
+model Respondent {
+  id              String    @id @default(uuid()) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  email           String    @db.VarChar(255)
+  isEmailVerified Boolean   @default(false) @map("is_email_verified")
+  verifiedAt      DateTime? @map("verified_at")
+  consentGivenAt  DateTime? @map("consent_given_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  tenant               Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submissions          Submission[]
+  verificationTokens   EmailVerificationToken[]
+
+  @@unique([tenantId, email])
+  @@map("respondents")
+}
+
+model EmailVerificationToken {
+  id           String    @id @default(uuid()) @db.Uuid
+  respondentId String    @map("respondent_id") @db.Uuid
+  tokenHash    String    @unique @map("token_hash") @db.Char(64)
+  status       String    @default("issued") @db.VarChar(20)
+  expiresAt    DateTime  @map("expires_at")
+  consumedAt   DateTime? @map("consumed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  respondent Respondent @relation(fields: [respondentId], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_tokens")
+}
+
+// ──────────────────────────────────────────────
+// SUBMISSIONS & ANSWERS
+// ──────────────────────────────────────────────
+
+model Submission {
+  id              String    @id @default(uuid()) @db.Uuid
+  questionnaireId String    @map("questionnaire_id") @db.Uuid
+  respondentId    String?   @map("respondent_id") @db.Uuid
+  startedAt       DateTime  @default(now()) @map("started_at")
+  submittedAt     DateTime? @map("submitted_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  questionnaire Questionnaire      @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  respondent    Respondent?        @relation(fields: [respondentId], references: [id])
+  answers       SubmissionAnswer[]
+
+  @@map("submissions")
+}
+
+model SubmissionAnswer {
+  id               String   @id @default(uuid()) @db.Uuid
+  submissionId     String   @map("submission_id") @db.Uuid
+  questionId       String   @map("question_id") @db.Uuid
+  selectedOptionId String   @map("selected_option_id") @db.Uuid
+  answeredAt       DateTime @default(now()) @map("answered_at")
+
+  submission     Submission     @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question       Question       @relation(fields: [questionId], references: [id])
+  selectedOption QuestionOption @relation(fields: [selectedOptionId], references: [id])
+
+  @@unique([submissionId, questionId])
+  @@map("submission_answers")
+}
+
+// ──────────────────────────────────────────────
+// AUDIT LOG (GDPR accountability)
+// ──────────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  userEmail   String?  @map("user_email") @db.VarChar(255)
+  action      String   @db.VarChar(100)
+  resource    String   @db.VarChar(100)
+  resourceId  String?  @map("resource_id") @db.VarChar(255)
+  details     String?
+  ipAddress   String?  @map("ip_address") @db.VarChar(45)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}
+
+// ──────────────────────────────────────────────
+// SESSION STORE (for express-session)
+// ──────────────────────────────────────────────
+
+model Session {
+  sid     String   @id @db.VarChar(255)
+  sess    Json
+  expire  DateTime @db.Timestamp(6)
+
+  @@index([expire], name: "IDX_session_expire")
+  @@map("session")
+}

@@ -1,0 +1,15 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install OpenSSL for Prisma engine
+RUN apk add --no-cache openssl
+
+# Copy the shared dev entrypoint
+COPY docker/entrypoint.dev.sh /usr/local/bin/entrypoint.dev.sh
+RUN chmod +x /usr/local/bin/entrypoint.dev.sh
+
+EXPOSE 4000 5555
+
+ENTRYPOINT ["entrypoint.dev.sh"]
+CMD ["sh", "-c", "npx prisma generate && npx prisma db push --skip-generate && npx ts-node --compiler-options '{\"module\":\"commonjs\"}' prisma/seed.ts && npm run start:dev"]

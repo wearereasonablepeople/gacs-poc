@@ -1,0 +1,24 @@
+node_modules/
+dist/
+build/
+
+.docs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma
+api/prisma/migrations/**/migration_lock.toml
+
+# Docker
+pgdata/
