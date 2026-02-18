@@ -5,7 +5,8 @@ import { generateSubmissionPdf, buildPdfFilename } from '@/lib/pdf';
 import type { PdfData } from '@/lib/pdf';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Download, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Download, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
 
 interface TenantBranding {
   name: string;
@@ -31,7 +32,8 @@ interface PdfApiResponse {
       questions: {
         code: string | null;
         prompt: string;
-        selectedOption: { label: string; groupLabel: string | null } | null;
+        selectedOption: { label: string; groupLabel: string | null; isAllowed: boolean | null } | null;
+        allowedOptions: string[];
       }[];
     }[];
   };
@@ -149,14 +151,30 @@ export function DownloadPage() {
 
   if (pageState === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/50 p-4">
-        <Card className="w-full max-w-md text-center">
-          <CardHeader>
-            <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
-            <CardTitle>Gegevens laden...</CardTitle>
-            <CardDescription>Even geduld alstublieft.</CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="min-h-screen bg-muted/50 p-4">
+        <div className="border-b bg-background">
+          <div className="mx-auto max-w-3xl flex items-center gap-3 p-4">
+            <Skeleton className="h-8 w-8 rounded" />
+            <Skeleton className="h-6 w-32" />
+          </div>
+        </div>
+        <div className="mx-auto max-w-2xl p-4 pt-8">
+          <Card>
+            <CardHeader className="text-center space-y-3">
+              <Skeleton className="h-12 w-12 rounded-full mx-auto" />
+              <Skeleton className="h-6 w-48 mx-auto" />
+              <Skeleton className="h-4 w-full max-w-sm mx-auto" />
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }

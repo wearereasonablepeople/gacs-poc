@@ -155,11 +155,12 @@ model Question {
 }
 
 model QuestionOption {
-  id           String  @id @default(uuid()) @db.Uuid
-  questionId   String  @map("question_id") @db.Uuid
+  id           String   @id @default(uuid()) @db.Uuid
+  questionId   String   @map("question_id") @db.Uuid
   label        String
-  groupLabel   String? @map("group_label") @db.VarChar(100)
-  displayOrder Int     @default(0) @map("display_order")
+  groupLabel   String?  @map("group_label") @db.VarChar(100)
+  isAllowed    Boolean? @map("is_allowed")
+  displayOrder Int      @default(0) @map("display_order")
   createdAt    DateTime @default(now()) @map("created_at")
 
   question          Question           @relation(fields: [questionId], references: [id], onDelete: Cascade)

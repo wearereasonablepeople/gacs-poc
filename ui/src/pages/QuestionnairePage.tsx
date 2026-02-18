@@ -15,13 +15,23 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { ChevronLeft, ChevronRight, Send, Loader2, CheckCircle2, AlertCircle, Download, WifiOff, RefreshCw } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ConfettiButton } from '@/components/ui/confetti-button';
+import { ChevronLeft, ChevronRight, Send, Loader2, CheckCircle2, AlertCircle, AlertTriangle, Download, WifiOff, RefreshCw } from 'lucide-react';
 import { generateSubmissionPdf, buildPdfFilename } from '@/lib/pdf';
 import type { PdfData } from '@/lib/pdf';
 
@@ -29,6 +39,7 @@ interface Option {
   id: string;
   label: string;
   groupLabel: string | null;
+  isAllowed: boolean | null;
   displayOrder: number;
 }
 
@@ -97,6 +108,7 @@ export function QuestionnairePage() {
   const [consentGiven, setConsentGiven] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [incompleteDialogOpen, setIncompleteDialogOpen] = useState(false);
 
   // Persist draft to localStorage whenever answers, submissionId or section changes
   useEffect(() => {
@@ -348,13 +360,17 @@ export function QuestionnairePage() {
       sections: questionnaire.sections.map((section) => ({
         code: section.code,
         title: section.title,
-        questions: section.questions.map((q) => ({
-          code: q.code,
-          prompt: q.prompt,
-          selectedOption: answers[q.id]
-            ? { label: q.options.find((o) => o.id === answers[q.id])?.label ?? '', groupLabel: q.options.find((o) => o.id === answers[q.id])?.groupLabel ?? null }
-            : null,
-        })),
+        questions: section.questions.map((q) => {
+          const selectedOpt = q.options.find((o) => o.id === answers[q.id]);
+          return {
+            code: q.code,
+            prompt: q.prompt,
+            selectedOption: selectedOpt
+              ? { label: selectedOpt.label, groupLabel: selectedOpt.groupLabel, isAllowed: selectedOpt.isAllowed ?? null }
+              : null,
+            allowedOptions: q.options.filter((o) => o.isAllowed === true).map((o) => o.label),
+          };
+        }),
       })),
     };
     const doc = generateSubmissionPdf(pdfData);
@@ -371,14 +387,26 @@ export function QuestionnairePage() {
   const totalSections = questionnaire?.sections.length || 0;
   const totalQuestions = questionnaire?.sections.reduce((sum, s) => sum + s.questions.length, 0) || 0;
   const answeredCount = Object.keys(answers).length;
-  const progressPercent = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;
+  const allAnswered = answeredCount >= totalQuestions;
 
-  const allCurrentSectionAnswered = useMemo(() => {
-    if (!currentSection) return false;
-    return currentSection.questions.every((q) => answers[q.id]);
-  }, [currentSection, answers]);
+  const unansweredBySection = useMemo(() => {
+    if (!questionnaire) return [];
+    return questionnaire.sections
+      .map((section) => {
+        const missing = section.questions.filter((q) => !answers[q.id]);
+        if (missing.length === 0) return null;
+        return { section, questions: missing };
+      })
+      .filter(Boolean) as { section: Section; questions: Question[] }[];
+  }, [questionnaire, answers]);
 
-  const isLastSection = currentSectionIndex === totalSections - 1;
+  const handleFinish = useCallback(() => {
+    if (allAnswered) {
+      setShowEmailForm(true);
+    } else {
+      setIncompleteDialogOpen(true);
+    }
+  }, [allAnswered]);
 
   // Compute page background from branding
   const pageBackground: React.CSSProperties = questionnaire?.tenant?.secondaryColor
@@ -387,8 +415,33 @@ export function QuestionnairePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-muted/50">
+        <div className="border-b bg-background">
+          <div className="mx-auto max-w-5xl flex items-center gap-3 p-4">
+            <Skeleton className="h-8 w-8 rounded" />
+            <Skeleton className="h-6 w-32" />
+          </div>
+        </div>
+        <div className="mx-auto max-w-5xl p-4 pt-8 space-y-6">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-full max-w-md" />
+          </div>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-full mt-2" />
+            </CardHeader>
+            <CardContent className="space-y-8">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -443,8 +496,8 @@ export function QuestionnairePage() {
     return (
       <div className="min-h-screen bg-muted/50" style={pageBackground}>
         <Header tenant={questionnaire.tenant} />
-        <div className="mx-auto max-w-2xl p-4 pt-8">
-          <Card>
+        <div className="mx-auto max-w-5xl p-4 pt-8">
+          <Card className="max-w-2xl mx-auto">
             <CardHeader>
               <CardTitle>Bijna klaar!</CardTitle>
               <CardDescription>
@@ -548,41 +601,63 @@ export function QuestionnairePage() {
         </div>
       )}
 
-      <div className="mx-auto max-w-3xl p-4 pt-8 space-y-6">
-        {/* Title & Progress */}
+      {/* Sticky Stepper */}
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b">
+        <div className="w-full px-4 py-3">
+          <ScrollArea className="w-full">
+            <nav className="flex min-w-full items-center justify-center gap-0">
+              {questionnaire.sections.map((section, idx) => {
+                const sectionAnswered = section.questions.every((q) => answers[q.id]);
+                const isCurrent = idx === currentSectionIndex;
+                return (
+                  <div key={section.id} className="flex items-center flex-shrink-0">
+                    {idx > 0 && (
+                      <div className={`w-6 sm:w-10 h-0.5 ${idx <= currentSectionIndex ? 'bg-primary' : 'bg-muted-foreground/20'}`} />
+                    )}
+                    <button
+                      onClick={() => {
+                        setCurrentSectionIndex(idx);
+                        setTimeout(scrollToSection, 100);
+                      }}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors text-sm whitespace-nowrap ${
+                        isCurrent
+                          ? 'text-primary font-semibold'
+                          : sectionAnswered
+                            ? 'text-muted-foreground hover:text-foreground'
+                            : 'text-muted-foreground/60 hover:text-muted-foreground'
+                      }`}
+                    >
+                      <span
+                        className={`flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold flex-shrink-0 border-2 transition-colors ${
+                          sectionAnswered
+                            ? 'bg-primary border-primary text-primary-foreground'
+                            : isCurrent
+                              ? 'border-primary text-primary bg-transparent'
+                              : 'border-muted-foreground/30 text-muted-foreground/50 bg-transparent'
+                        }`}
+                      >
+                        {sectionAnswered ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
+                      </span>
+                      <span className="hidden sm:inline">
+                        {section.title.length > 20 ? section.title.substring(0, 20) + '…' : section.title}
+                      </span>
+                    </button>
+                  </div>
+                );
+              })}
+            </nav>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-5xl p-4 pt-8 space-y-6">
+        {/* Title */}
         <div className="space-y-2">
           <h1 className="text-2xl font-bold">{questionnaire.title}</h1>
           {questionnaire.description && (
             <p className="text-muted-foreground" style={questionnaire.tenant.subtextColor ? { color: questionnaire.tenant.subtextColor } : undefined}>{questionnaire.description}</p>
           )}
-          <div className="flex items-center gap-3 pt-2">
-            <Progress value={progressPercent} className="flex-1" />
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
-              {answeredCount}/{totalQuestions} vragen
-            </span>
-          </div>
-        </div>
-
-        {/* Section Navigation */}
-        <div className="flex flex-wrap gap-2">
-          {questionnaire.sections.map((section, idx) => {
-            const sectionAnswered = section.questions.every((q) => answers[q.id]);
-            return (
-              <Button
-                key={section.id}
-                variant={idx === currentSectionIndex ? 'default' : sectionAnswered ? 'secondary' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  setCurrentSectionIndex(idx);
-                  setTimeout(scrollToSection, 100);
-                }}
-              >
-                {section.code && `${section.code}. `}
-                {section.title.length > 25 ? section.title.substring(0, 25) + '...' : section.title}
-                {sectionAnswered && <CheckCircle2 className="h-3 w-3 ml-1" />}
-              </Button>
-            );
-          })}
         </div>
 
         {/* Current Section */}
@@ -626,20 +701,86 @@ export function QuestionnairePage() {
             <ChevronLeft className="h-4 w-4" /> Vorige
           </Button>
 
-          {isLastSection ? (
-            <Button onClick={() => setShowEmailForm(true)} disabled={answeredCount < totalQuestions}>
-              Afronden <Send className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button onClick={() => {
-              setCurrentSectionIndex((i) => Math.min(totalSections - 1, i + 1));
-              setTimeout(scrollToSection, 100);
-            }}>
-              Volgende <ChevronRight className="h-4 w-4" />
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {currentSectionIndex < totalSections - 1 && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCurrentSectionIndex((i) => Math.min(totalSections - 1, i + 1));
+                  setTimeout(scrollToSection, 100);
+                }}
+              >
+                Volgende <ChevronRight className="h-4 w-4" />
+              </Button>
+            )}
+            {allAnswered ? (
+              <ConfettiButton onClick={handleFinish}>
+                <Send className="h-4 w-4" />
+                Afronden
+              </ConfettiButton>
+            ) : (
+              <Button onClick={() => setIncompleteDialogOpen(true)}>
+                <Send className="h-4 w-4" />
+                Afronden
+              </Button>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Incomplete answers dialog */}
+      <Dialog open={incompleteDialogOpen} onOpenChange={setIncompleteDialogOpen}>
+        <DialogContent className="max-w-md max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Niet alle vragen beantwoord
+            </DialogTitle>
+            <DialogDescription>
+              De volgende vragen zijn nog niet beantwoord. Beantwoord alle vragen om de vragenlijst af te ronden.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[50vh]">
+            <div className="space-y-4 py-2 pr-4">
+              {unansweredBySection.map(({ section, questions }) => (
+                <div key={section.id}>
+                  <h4 className="font-semibold text-sm mb-1">
+                    {section.code && <span className="text-primary mr-1">{section.code}.</span>}
+                    {section.title}
+                  </h4>
+                  <ul className="space-y-1 ml-4">
+                    {questions.map((q) => (
+                      <li key={q.id} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <AlertCircle className="h-3.5 w-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                        <span>
+                          {q.code && <span className="font-medium text-foreground mr-1">{q.code}</span>}
+                          {q.prompt}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIncompleteDialogOpen(false)}>
+              Sluiten
+            </Button>
+            {unansweredBySection.length > 0 && (
+              <Button onClick={() => {
+                const firstSection = unansweredBySection[0].section;
+                const idx = questionnaire.sections.findIndex((s) => s.id === firstSection.id);
+                if (idx >= 0) setCurrentSectionIndex(idx);
+                setIncompleteDialogOpen(false);
+                setTimeout(scrollToSection, 100);
+              }}>
+                Ga naar eerste ontbrekende vraag
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -654,7 +795,7 @@ function Header({ tenant }: { tenant: Questionnaire['tenant'] }) {
 
   return (
     <header className={hasBranding ? 'shadow-sm' : 'border-b bg-background'} style={headerStyle}>
-      <div className="mx-auto max-w-3xl flex items-center gap-3 p-4">
+      <div className="mx-auto max-w-5xl flex items-center gap-3 p-4">
         {tenant.logoUrl ? (
           <img
             src={tenant.logoUrl}

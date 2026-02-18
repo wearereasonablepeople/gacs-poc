@@ -19,6 +19,30 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface TenantUser {
   id: string;
@@ -38,6 +62,7 @@ export default function UsersPage() {
   const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState('tenant_admin');
   const [inviteErrors, setInviteErrors] = useState<FieldErrors<InviteUserData>>({});
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
 
   const { data: users, isLoading } = useQuery<TenantUser[]>({
     queryKey: ['tenant-users', user?.tenantId],
@@ -91,8 +116,21 @@ export default function UsersPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="rounded-md border">
+          <div className="p-4 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -142,15 +180,15 @@ export default function UsersPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="invite-role">Role</Label>
-                <select
-                  id="invite-role"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
-                >
-                  <option value="tenant_admin">Admin</option>
-                  <option value="tenant_owner">Owner</option>
-                </select>
+                <Select value={inviteRole} onValueChange={setInviteRole}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tenant_admin">Admin</SelectItem>
+                    <SelectItem value="tenant_owner">Owner</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>
@@ -211,31 +249,35 @@ export default function UsersPage() {
                     <TableCell className="text-right">
                       {u.id !== user?.id && (
                         <div className="flex items-center justify-end gap-1">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() =>
+                                    toggleActiveMutation.mutate({
+                                      userId: u.id,
+                                      isActive: !u.isActive,
+                                    })
+                                  }
+                                >
+                                  {u.isActive ? (
+                                    <Ban className="h-4 w-4 text-destructive" />
+                                  ) : (
+                                    <Check className="h-4 w-4 text-green-600" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {u.isActive ? 'Deactivate' : 'Activate'}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                           <Button
                             variant="ghost"
                             size="icon"
-                            title={u.isActive ? 'Deactivate' : 'Activate'}
-                            onClick={() =>
-                              toggleActiveMutation.mutate({
-                                userId: u.id,
-                                isActive: !u.isActive,
-                              })
-                            }
-                          >
-                            {u.isActive ? (
-                              <Ban className="h-4 w-4 text-destructive" />
-                            ) : (
-                              <Check className="h-4 w-4 text-green-600" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              if (confirm(`Remove ${u.displayName} from this tenant?`)) {
-                                removeMutation.mutate(u.id);
-                              }
-                            }}
+                            onClick={() => setRemoveTarget({ id: u.id, name: u.displayName })}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -251,6 +293,29 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!removeTarget} onOpenChange={(open) => { if (!open) setRemoveTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove {removeTarget?.name} from this tenant? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (removeTarget) removeMutation.mutate(removeTarget.id);
+                setRemoveTarget(null);
+              }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -3,7 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 type VerifyState = 'idle' | 'loading' | 'success' | 'error';
 
@@ -75,12 +76,15 @@ export function VerifyPage() {
   if (state === 'idle' || state === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/50 p-4">
-        <Card className="w-full max-w-md text-center">
-          <CardHeader>
-            <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
-            <CardTitle>E-mail verifiëren...</CardTitle>
-            <CardDescription>Even geduld alstublieft.</CardDescription>
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center space-y-3">
+            <Skeleton className="h-12 w-12 rounded-full mx-auto" />
+            <Skeleton className="h-6 w-40 mx-auto" />
+            <Skeleton className="h-4 w-full max-w-xs mx-auto" />
           </CardHeader>
+          <CardContent>
+            <Skeleton className="h-3 w-full" />
+          </CardContent>
         </Card>
       </div>
     );

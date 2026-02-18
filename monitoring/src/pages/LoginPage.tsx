@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { loginSchema, getFieldErrors, type FieldErrors, type LoginData } from '@/lib/schemas';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Activity, AlertCircle } from 'lucide-react';
@@ -18,8 +19,19 @@ export function LoginPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="w-full max-w-md space-y-6">
+          <div className="space-y-4 text-center">
+            <Skeleton className="mx-auto h-12 w-12 rounded-lg" />
+            <Skeleton className="h-6 w-48 mx-auto" />
+            <Skeleton className="h-4 w-64 mx-auto" />
+          </div>
+          <div className="space-y-4 p-6">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </div>
       </div>
     );
   }

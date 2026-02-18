@@ -30,6 +30,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -40,11 +42,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 
 interface Option {
   id: string;
   label: string;
   groupLabel: string | null;
+  isAllowed: boolean | null;
   displayOrder: number;
 }
 
@@ -139,7 +162,17 @@ export default function QuestionnaireDetailPage() {
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
   const [optionQuestionId, setOptionQuestionId] = useState('');
   const [optionLabel, setOptionLabel] = useState('');
+  const [optionIsAllowed, setOptionIsAllowed] = useState<string>('allowed');
   const [optionErrors, setOptionErrors] = useState<FieldErrors<OptionData>>({});
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: 'section' | 'question' | 'option';
+    sectionId: string;
+    questionId?: string;
+    optionId?: string;
+    label: string;
+  } | null>(null);
 
   const { data: questionnaire, isLoading } = useQuery<Questionnaire>({
     queryKey: ['questionnaire', id],
@@ -251,8 +284,10 @@ export default function QuestionnaireDetailPage() {
   // Option mutations
   const createOptionMutation = useMutation({
     mutationFn: async () => {
+      const isAllowed = optionIsAllowed === 'allowed' ? true : optionIsAllowed === 'not_allowed' ? false : null;
       await api.post(`/questions/${optionQuestionId}/options`, {
         label: optionLabel,
+        isAllowed,
       });
     },
     onSuccess: () => {
@@ -260,6 +295,13 @@ export default function QuestionnaireDetailPage() {
       setOptionDialogOpen(false);
       resetOptionForm();
     },
+  });
+
+  const updateOptionMutation = useMutation({
+    mutationFn: async ({ questionId, optionId, isAllowed }: { questionId: string; optionId: string; isAllowed: boolean | null }) => {
+      await api.patch(`/questions/${questionId}/options/${optionId}`, { isAllowed });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['questionnaire', id] }),
   });
 
   const deleteOptionMutation = useMutation({
@@ -340,6 +382,7 @@ export default function QuestionnaireDetailPage() {
   function resetOptionForm() {
     setOptionQuestionId('');
     setOptionLabel('');
+    setOptionIsAllowed('none');
     setOptionErrors({});
   }
 
@@ -394,8 +437,15 @@ export default function QuestionnaireDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10 rounded" />
+          <div className="space-y-2 flex-1">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+        </div>
+        <Skeleton className="h-[300px] w-full rounded-lg" />
       </div>
     );
   }
@@ -409,6 +459,21 @@ export default function QuestionnaireDetailPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb className="mb-4">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild><Link to="/">Dashboard</Link></BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild><Link to="/questionnaires">Questionnaires</Link></BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{questionnaire.title}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
@@ -458,16 +523,17 @@ export default function QuestionnaireDetailPage() {
             const isCollapsed = collapsedSections.has(section.id);
 
             return (
-              <Card
-                key={section.id}
-                draggable
-                onDragStart={() => handleDragStart(sIdx)}
-                onDragEnter={() => handleDragEnter(sIdx)}
-                onDragEnd={handleDragEnd}
-                onDragOver={(e) => e.preventDefault()}
-                className={`transition-opacity ${dragIdx === sIdx ? 'opacity-50' : ''}`}
-              >
-                <CardHeader className="cursor-pointer select-none" onClick={() => toggleSection(section.id)}>
+              <Collapsible key={section.id} open={!isCollapsed} onOpenChange={() => toggleSection(section.id)}>
+                <Card
+                  draggable
+                  onDragStart={() => handleDragStart(sIdx)}
+                  onDragEnter={() => handleDragEnter(sIdx)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => e.preventDefault()}
+                  className={`transition-opacity ${dragIdx === sIdx ? 'opacity-50' : ''}`}
+                >
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer select-none">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div
@@ -507,20 +573,17 @@ export default function QuestionnaireDetailPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => {
-                            if (confirm('Delete this section and all its questions?')) {
-                              deleteSectionMutation.mutate(section.id);
-                            }
-                          }}
+                          onClick={() => setDeleteTarget({ type: 'section', sectionId: section.id, label: section.title })}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       )}
                     </div>
                   </div>
-                </CardHeader>
-                {!isCollapsed && (
-                  <CardContent className="space-y-3">
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="space-y-3">
                     {sortedQuestions.map((question) => {
                       const sortedOptions = [...question.options].sort(
                         (a, b) => a.displayOrder - b.displayOrder,
@@ -560,14 +623,7 @@ export default function QuestionnaireDetailPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => {
-                                  if (confirm('Delete this question?')) {
-                                    deleteQuestionMutation.mutate({
-                                      sectionId: section.id,
-                                      questionId: question.id,
-                                    });
-                                  }
-                                }}
+                                onClick={() => setDeleteTarget({ type: 'question', sectionId: section.id, questionId: question.id, label: question.prompt })}
                               >
                                 <Trash2 className="h-3 w-3 text-destructive" />
                               </Button>
@@ -584,23 +640,39 @@ export default function QuestionnaireDetailPage() {
                                 <span className="flex items-center gap-2">
                                   <span className="h-3 w-3 rounded-full border border-muted-foreground/40 flex-shrink-0" />
                                   {option.label}
+                                  {option.isAllowed === true && (
+                                    <Badge variant="default" className="text-[10px] px-1.5 py-0">Allowed</Badge>
+                                  )}
+                                  {option.isAllowed === false && (
+                                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Not allowed</Badge>
+                                  )}
                                 </span>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={() => {
-                                    if (confirm('Delete this option?')) {
-                                      deleteOptionMutation.mutate({
-                                        sectionId: section.id,
-                                        questionId: question.id,
-                                        optionId: option.id,
-                                      });
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="h-3 w-3 text-destructive" />
-                                </Button>
+                                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                  <Select
+                                    value={option.isAllowed === true ? 'allowed' : option.isAllowed === false ? 'not_allowed' : 'none'}
+                                    onValueChange={(val) => {
+                                      const isAllowed = val === 'allowed' ? true : val === 'not_allowed' ? false : null;
+                                      updateOptionMutation.mutate({ questionId: question.id, optionId: option.id, isAllowed });
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-7 w-[120px] text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">—</SelectItem>
+                                      <SelectItem value="allowed">Allowed</SelectItem>
+                                      <SelectItem value="not_allowed">Not allowed</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={() => setDeleteTarget({ type: 'option', sectionId: section.id, questionId: question.id, optionId: option.id, label: option.label })}
+                                  >
+                                    <Trash2 className="h-3 w-3 text-destructive" />
+                                  </Button>
+                                </div>
                               </div>
                             ))}
                             <Button
@@ -627,8 +699,9 @@ export default function QuestionnaireDetailPage() {
                       Add Question
                     </Button>
                   </CardContent>
-                )}
-              </Card>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
             );
           })}
         </TabsContent>
@@ -692,7 +765,7 @@ export default function QuestionnaireDetailPage() {
 
       {/* Submission detail dialog */}
       <Dialog open={submissionDetailOpen} onOpenChange={setSubmissionDetailOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
@@ -704,67 +777,69 @@ export default function QuestionnaireDetailPage() {
           </DialogHeader>
 
           {submissionDetail ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Respondent:</span>
-                  <p className="font-medium">{submissionDetail.respondent?.email ?? 'Anonymous'}</p>
+            <ScrollArea className="max-h-[60vh]">
+              <div className="space-y-4 pr-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Respondent:</span>
+                    <p className="font-medium">{submissionDetail.respondent?.email ?? 'Anonymous'}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Status:</span>
+                    <p>
+                      {(() => {
+                        const isComplete = submissionDetail.submittedAt && submissionDetail.answers.length >= submissionDetail.totalQuestions && submissionDetail.totalQuestions > 0;
+                        return (
+                          <Badge variant={isComplete ? 'default' : 'secondary'}>
+                            {isComplete ? 'Completed' : 'Incomplete'}
+                          </Badge>
+                        );
+                      })()}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Started:</span>
+                    <p className="font-medium">
+                      {new Date(submissionDetail.startedAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Completed:</span>
+                    <p className="font-medium">
+                      {submissionDetail.submittedAt
+                        ? new Date(submissionDetail.submittedAt).toLocaleString()
+                        : '—'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Status:</span>
-                  <p>
-                    {(() => {
-                      const isComplete = submissionDetail.submittedAt && submissionDetail.answers.length >= submissionDetail.totalQuestions && submissionDetail.totalQuestions > 0;
-                      return (
-                        <Badge variant={isComplete ? 'default' : 'secondary'}>
-                          {isComplete ? 'Completed' : 'Incomplete'}
-                        </Badge>
-                      );
-                    })()}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Started:</span>
-                  <p className="font-medium">
-                    {new Date(submissionDetail.startedAt).toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Completed:</span>
-                  <p className="font-medium">
-                    {submissionDetail.submittedAt
-                      ? new Date(submissionDetail.submittedAt).toLocaleString()
-                      : '—'}
-                  </p>
+
+                <Separator />
+
+                <div className="space-y-3">
+                  <h4 className="font-semibold">Answers ({submissionDetail.answers?.length ?? 0})</h4>
+                  {submissionDetail.answers && submissionDetail.answers.length > 0 ? (
+                    submissionDetail.answers.map((answer) => (
+                      <div key={answer.id} className="rounded-lg border p-3">
+                        <p className="text-sm font-medium">
+                          {answer.question.code && (
+                            <span className="text-primary mr-1">{answer.question.code}</span>
+                          )}
+                          {answer.question.prompt}
+                        </p>
+                        <p className="text-sm bg-muted rounded px-2 py-1 mt-1">
+                          {answer.selectedOption.label}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No answers recorded</p>
+                  )}
                 </div>
               </div>
-
-              <Separator />
-
-              <div className="space-y-3">
-                <h4 className="font-semibold">Answers ({submissionDetail.answers?.length ?? 0})</h4>
-                {submissionDetail.answers && submissionDetail.answers.length > 0 ? (
-                  submissionDetail.answers.map((answer) => (
-                    <div key={answer.id} className="rounded-lg border p-3">
-                      <p className="text-sm font-medium">
-                        {answer.question.code && (
-                          <span className="text-primary mr-1">{answer.question.code}</span>
-                        )}
-                        {answer.question.prompt}
-                      </p>
-                      <p className="text-sm bg-muted rounded px-2 py-1 mt-1">
-                        {answer.selectedOption.label}
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">No answers recorded</p>
-                )}
-              </div>
-            </div>
+            </ScrollArea>
           ) : (
             <div className="flex items-center justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              <Skeleton className="h-6 w-6 rounded-full" />
             </div>
           )}
         </DialogContent>
@@ -840,12 +915,10 @@ export default function QuestionnaireDetailPage() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="required"
                 checked={questionRequired}
-                onChange={(e) => setQuestionRequired(e.target.checked)}
-                className="rounded"
+                onCheckedChange={(checked) => setQuestionRequired(checked === true)}
               />
               <Label htmlFor="required">Required</Label>
             </div>
@@ -880,6 +953,22 @@ export default function QuestionnaireDetailPage() {
               />
               {optionErrors.label && <p className="text-xs text-destructive">{optionErrors.label}</p>}
             </div>
+            <div className="space-y-2">
+              <Label>Compliance status <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Select value={optionIsAllowed} onValueChange={setOptionIsAllowed}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No designation</SelectItem>
+                  <SelectItem value="allowed">Allowed</SelectItem>
+                  <SelectItem value="not_allowed">Not allowed</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Mark as &quot;Not allowed&quot; to flag this answer in the PDF report when selected by a respondent.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOptionDialogOpen(false)}>
@@ -892,6 +981,43 @@ export default function QuestionnaireDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deleteTarget?.type === 'section' && 'Delete Section'}
+              {deleteTarget?.type === 'question' && 'Delete Question'}
+              {deleteTarget?.type === 'option' && 'Delete Option'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.type === 'section' && `Are you sure you want to delete "${deleteTarget.label}" and all its questions? This action cannot be undone.`}
+              {deleteTarget?.type === 'question' && `Are you sure you want to delete this question? This action cannot be undone.`}
+              {deleteTarget?.type === 'option' && `Are you sure you want to delete the option "${deleteTarget.label}"? This action cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (!deleteTarget) return;
+                if (deleteTarget.type === 'section') {
+                  deleteSectionMutation.mutate(deleteTarget.sectionId);
+                } else if (deleteTarget.type === 'question' && deleteTarget.questionId) {
+                  deleteQuestionMutation.mutate({ sectionId: deleteTarget.sectionId, questionId: deleteTarget.questionId });
+                } else if (deleteTarget.type === 'option' && deleteTarget.questionId && deleteTarget.optionId) {
+                  deleteOptionMutation.mutate({ sectionId: deleteTarget.sectionId, questionId: deleteTarget.questionId, optionId: deleteTarget.optionId });
+                }
+                setDeleteTarget(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

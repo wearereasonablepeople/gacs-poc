@@ -1,0 +1,12 @@
+export { PrismaRoleRepository } from './role.prisma.repository';
+export { PrismaPlatformAdminRepository } from './platformadmin.prisma.repository';
+export { PrismaTenantRepository } from './tenant.prisma.repository';
+export { PrismaTenantUserRepository } from './tenantuser.prisma.repository';
+export { PrismaQuestionnaireRepository } from './questionnaire.prisma.repository';
+export { PrismaSectionRepository } from './section.prisma.repository';
+export { PrismaQuestionRepository } from './question.prisma.repository';
+export { PrismaQuestionOptionRepository } from './questionoption.prisma.repository';
+export { PrismaRespondentRepository } from './respondent.prisma.repository';
+export { PrismaSubmissionRepository } from './submission.prisma.repository';
+export { PrismaAuditLogRepository } from './auditlog.prisma.repository';
+export { PrismaVerificationTokenRepository } from './verificationtoken.prisma.repository';

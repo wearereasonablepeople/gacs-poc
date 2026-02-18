@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Shield, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export function GdprErasurePage() {
@@ -74,18 +75,26 @@ export function GdprErasurePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg border bg-muted/50 p-4 space-y-2 text-sm">
-              <h4 className="font-semibold">Wat wordt verwijderd:</h4>
-              <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                <li>Uw e-mailadres en verificatiegegevens</li>
-                <li>De koppeling tussen uw identiteit en uw antwoorden</li>
-                <li>Alle verificatietokens</li>
-              </ul>
-              <h4 className="font-semibold pt-2">Wat wordt behouden (geanonimiseerd):</h4>
-              <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                <li>Geanonimiseerde antwoorden (niet meer herleidbaar tot u)</li>
-              </ul>
-            </div>
+            <Accordion type="single" collapsible defaultValue="deleted" className="rounded-lg border bg-muted/50 text-sm">
+              <AccordionItem value="deleted" className="border-b-0 px-4">
+                <AccordionTrigger className="py-4 hover:no-underline">Wat wordt verwijderd</AccordionTrigger>
+                <AccordionContent>
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                    <li>Uw e-mailadres en verificatiegegevens</li>
+                    <li>De koppeling tussen uw identiteit en uw antwoorden</li>
+                    <li>Alle verificatietokens</li>
+                  </ul>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="kept" className="px-4">
+                <AccordionTrigger className="py-4 hover:no-underline">Wat wordt behouden (geanonimiseerd)</AccordionTrigger>
+                <AccordionContent>
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                    <li>Geanonimiseerde antwoorden (niet meer herleidbaar tot u)</li>
+                  </ul>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
 
             <div className="space-y-2">
               <Label htmlFor="erasure-email">E-mailadres</Label>

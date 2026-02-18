@@ -37,6 +37,7 @@ export type QuestionData = z.infer<typeof questionSchema>;
 // ─── Option ───────────────────────────────────────────────
 export const optionSchema = z.object({
   label: z.string().min(1, 'Label is required'),
+  isAllowed: z.boolean().nullable().optional(),
 });
 export type OptionData = z.infer<typeof optionSchema>;
 

@@ -1,0 +1,12 @@
+export { AuthController } from './auth.controller';
+export { RolesController } from './roles.controller';
+export { PlatformAdminsController } from './platformadmins.controller';
+export { TenantsController } from './tenants.controller';
+export { TenantUsersController } from './tenantusers.controller';
+export { QuestionnairesController } from './questionnaires.controller';
+export { SectionsController } from './sections.controller';
+export { QuestionsController } from './questions.controller';
+export { QuestionOptionsController } from './questionoptions.controller';
+export { SubmissionsController } from './submissions.controller';
+export { RespondentsController } from './respondents.controller';
+export { GdprController } from './gdpr.controller';

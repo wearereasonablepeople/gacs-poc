@@ -14,6 +14,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 // Matches the actual API response from findByTenant
 interface SubmissionSummary {
@@ -93,8 +95,21 @@ export default function SubmissionsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="rounded-md border">
+          <div className="p-4 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -168,7 +183,7 @@ export default function SubmissionsPage() {
 
       {/* Submission detail dialog */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
@@ -180,67 +195,69 @@ export default function SubmissionsPage() {
           </DialogHeader>
 
           {submissionDetail ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Respondent:</span>
-                  <p className="font-medium">{submissionDetail.respondent?.email ?? 'Anonymous'}</p>
+            <ScrollArea className="max-h-[60vh]">
+              <div className="space-y-4 pr-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Respondent:</span>
+                    <p className="font-medium">{submissionDetail.respondent?.email ?? 'Anonymous'}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Status:</span>
+                    <p>
+                      {(() => {
+                        const isComplete = submissionDetail.submittedAt && submissionDetail.answers.length >= submissionDetail.totalQuestions && submissionDetail.totalQuestions > 0;
+                        return (
+                          <Badge variant={isComplete ? 'default' : 'secondary'}>
+                            {isComplete ? 'Completed' : 'Incomplete'}
+                          </Badge>
+                        );
+                      })()}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Started:</span>
+                    <p className="font-medium">
+                      {new Date(submissionDetail.startedAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Completed:</span>
+                    <p className="font-medium">
+                      {submissionDetail.submittedAt
+                        ? new Date(submissionDetail.submittedAt).toLocaleString()
+                        : '—'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Status:</span>
-                  <p>
-                    {(() => {
-                      const isComplete = submissionDetail.submittedAt && submissionDetail.answers.length >= submissionDetail.totalQuestions && submissionDetail.totalQuestions > 0;
-                      return (
-                        <Badge variant={isComplete ? 'default' : 'secondary'}>
-                          {isComplete ? 'Completed' : 'Incomplete'}
-                        </Badge>
-                      );
-                    })()}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Started:</span>
-                  <p className="font-medium">
-                    {new Date(submissionDetail.startedAt).toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Completed:</span>
-                  <p className="font-medium">
-                    {submissionDetail.submittedAt
-                      ? new Date(submissionDetail.submittedAt).toLocaleString()
-                      : '—'}
-                  </p>
+
+                <Separator />
+
+                <div className="space-y-3">
+                  <h4 className="font-semibold">Answers ({submissionDetail.answers?.length ?? 0})</h4>
+                  {submissionDetail.answers && submissionDetail.answers.length > 0 ? (
+                    submissionDetail.answers.map((answer) => (
+                      <div key={answer.id} className="rounded-lg border p-3">
+                        <p className="text-sm font-medium">
+                          {answer.question.code && (
+                            <span className="text-primary mr-1">{answer.question.code}</span>
+                          )}
+                          {answer.question.prompt}
+                        </p>
+                        <p className="text-sm bg-muted rounded px-2 py-1 mt-1">
+                          {answer.selectedOption.label}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No answers recorded</p>
+                  )}
                 </div>
               </div>
-
-              <Separator />
-
-              <div className="space-y-3">
-                <h4 className="font-semibold">Answers ({submissionDetail.answers?.length ?? 0})</h4>
-                {submissionDetail.answers && submissionDetail.answers.length > 0 ? (
-                  submissionDetail.answers.map((answer) => (
-                    <div key={answer.id} className="rounded-lg border p-3">
-                      <p className="text-sm font-medium">
-                        {answer.question.code && (
-                          <span className="text-primary mr-1">{answer.question.code}</span>
-                        )}
-                        {answer.question.prompt}
-                      </p>
-                      <p className="text-sm bg-muted rounded px-2 py-1 mt-1">
-                        {answer.selectedOption.label}
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">No answers recorded</p>
-                )}
-              </div>
-            </div>
+            </ScrollArea>
           ) : (
             <div className="flex items-center justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              <Skeleton className="h-6 w-6 rounded-full" />
             </div>
           )}
         </DialogContent>
