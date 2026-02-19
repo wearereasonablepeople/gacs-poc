@@ -86,6 +86,7 @@ services:
       - "3001:3001"
     environment:
       VITE_API_URL: ${API_URL}
+      VITE_TINYMCE_API_KEY: ${VITE_TINYMCE_API_KEY}
     volumes:
       - ./reporting:/app
       - reporting_node_modules:/app/node_modules
@@ -109,8 +110,8 @@ services:
     image: axllent/mailpit:latest
     restart: unless-stopped
     ports:
-      - "8025:8025"   # Web UI
-      - "1025:1025"   # SMTP
+      - "8025:8025" # Web UI
+      - "1025:1025" # SMTP
 
 volumes:
   pgdata:

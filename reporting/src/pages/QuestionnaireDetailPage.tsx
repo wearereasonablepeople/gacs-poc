@@ -1,47 +1,3 @@
-import { useState, useCallback, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowLeft,
-  Plus,
-  GripVertical,
-  Pencil,
-  Trash2,
-  ChevronDown,
-  ChevronRight,
-  Save,
-  FileText,
-} from 'lucide-react';
-import api from '@/lib/api';
-import { useAuth } from '@/lib/auth';
-import {
-  sectionSchema,
-  questionSchema,
-  optionSchema,
-  getFieldErrors,
-  type FieldErrors,
-  type SectionData,
-  type QuestionData,
-  type OptionData,
-} from '@/lib/schemas';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,17 +7,85 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import api from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import {
+  getFieldErrors,
+  optionSchema,
+  questionSchema,
+  sectionSchema,
+  type FieldErrors,
+  type OptionData,
+  type QuestionData,
+  type SectionData,
+} from "@/lib/schemas";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  GripVertical,
+  Pencil,
+  Plus,
+  Save,
+  Trash2,
+} from "lucide-react";
+import { useCallback, useRef, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 
 interface Option {
   id: string;
@@ -131,7 +155,9 @@ export default function QuestionnaireDetailPage() {
   const queryClient = useQueryClient();
 
   // Collapsed sections
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Drag state
   const dragItem = useRef<number | null>(null);
@@ -139,35 +165,41 @@ export default function QuestionnaireDetailPage() {
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   // Submission detail
-  const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<
+    string | null
+  >(null);
   const [submissionDetailOpen, setSubmissionDetailOpen] = useState(false);
 
   // Section dialog
   const [sectionDialogOpen, setSectionDialogOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
-  const [sectionTitle, setSectionTitle] = useState('');
-  const [sectionDescription, setSectionDescription] = useState('');
-  const [sectionErrors, setSectionErrors] = useState<FieldErrors<SectionData>>({});
+  const [sectionTitle, setSectionTitle] = useState("");
+  const [sectionDescription, setSectionDescription] = useState("");
+  const [sectionErrors, setSectionErrors] = useState<FieldErrors<SectionData>>(
+    {},
+  );
 
   // Question dialog
   const [questionDialogOpen, setQuestionDialogOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
-  const [questionSectionId, setQuestionSectionId] = useState('');
-  const [questionText, setQuestionText] = useState('');
-  const [questionHelpText, setQuestionHelpText] = useState('');
+  const [questionSectionId, setQuestionSectionId] = useState("");
+  const [questionText, setQuestionText] = useState("");
+  const [questionHelpText, setQuestionHelpText] = useState("");
   const [questionRequired, setQuestionRequired] = useState(false);
-  const [questionErrors, setQuestionErrors] = useState<FieldErrors<QuestionData>>({});
+  const [questionErrors, setQuestionErrors] = useState<
+    FieldErrors<QuestionData>
+  >({});
 
   // Option dialog
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
-  const [optionQuestionId, setOptionQuestionId] = useState('');
-  const [optionLabel, setOptionLabel] = useState('');
-  const [optionIsAllowed, setOptionIsAllowed] = useState<string>('allowed');
+  const [optionQuestionId, setOptionQuestionId] = useState("");
+  const [optionLabel, setOptionLabel] = useState("");
+  const [optionIsAllowed, setOptionIsAllowed] = useState<string>("allowed");
   const [optionErrors, setOptionErrors] = useState<FieldErrors<OptionData>>({});
 
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<{
-    type: 'section' | 'question' | 'option';
+    type: "section" | "question" | "option";
     sectionId: string;
     questionId?: string;
     optionId?: string;
@@ -175,7 +207,7 @@ export default function QuestionnaireDetailPage() {
   } | null>(null);
 
   const { data: questionnaire, isLoading } = useQuery<Questionnaire>({
-    queryKey: ['questionnaire', id],
+    queryKey: ["questionnaire", id],
     queryFn: async () => {
       const { data } = await api.get(`/questionnaires/${id}`);
       return data;
@@ -184,7 +216,7 @@ export default function QuestionnaireDetailPage() {
   });
 
   const { data: submissions } = useQuery<Submission[]>({
-    queryKey: ['questionnaire-submissions', id],
+    queryKey: ["questionnaire-submissions", id],
     queryFn: async () => {
       const { data } = await api.get(`/questionnaires/${id}/submissions`);
       return data;
@@ -193,7 +225,7 @@ export default function QuestionnaireDetailPage() {
   });
 
   const { data: submissionDetail } = useQuery<SubmissionDetail>({
-    queryKey: ['submission-detail', selectedSubmissionId],
+    queryKey: ["submission-detail", selectedSubmissionId],
     queryFn: async () => {
       const { data } = await api.get(`/submissions/${selectedSubmissionId}`);
       return data;
@@ -210,7 +242,7 @@ export default function QuestionnaireDetailPage() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['questionnaire', id] });
+      queryClient.invalidateQueries({ queryKey: ["questionnaire", id] });
       setSectionDialogOpen(false);
       resetSectionForm();
     },
@@ -218,13 +250,13 @@ export default function QuestionnaireDetailPage() {
 
   const updateSectionMutation = useMutation({
     mutationFn: async () => {
-      await api.patch(
-        `/questionnaires/${id}/sections/${editingSection!.id}`,
-        { title: sectionTitle, description: sectionDescription },
-      );
+      await api.patch(`/questionnaires/${id}/sections/${editingSection!.id}`, {
+        title: sectionTitle,
+        description: sectionDescription,
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['questionnaire', id] });
+      queryClient.invalidateQueries({ queryKey: ["questionnaire", id] });
       setSectionDialogOpen(false);
       resetSectionForm();
     },
@@ -234,14 +266,16 @@ export default function QuestionnaireDetailPage() {
     mutationFn: async (sectionId: string) => {
       await api.delete(`/questionnaires/${id}/sections/${sectionId}`);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['questionnaire', id] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["questionnaire", id] }),
   });
 
   const reorderSectionMutation = useMutation({
     mutationFn: async ({ orderedIds }: { orderedIds: string[] }) => {
       await api.post(`/questionnaires/${id}/sections/reorder`, { orderedIds });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['questionnaire', id] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["questionnaire", id] }),
   });
 
   // Question mutations
@@ -254,7 +288,7 @@ export default function QuestionnaireDetailPage() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['questionnaire', id] });
+      queryClient.invalidateQueries({ queryKey: ["questionnaire", id] });
       setQuestionDialogOpen(false);
       resetQuestionForm();
     },
@@ -264,44 +298,71 @@ export default function QuestionnaireDetailPage() {
     mutationFn: async () => {
       await api.patch(
         `/sections/${questionSectionId}/questions/${editingQuestion!.id}`,
-        { prompt: questionText, helpText: questionHelpText || null, isRequired: questionRequired },
+        {
+          prompt: questionText,
+          helpText: questionHelpText || null,
+          isRequired: questionRequired,
+        },
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['questionnaire', id] });
+      queryClient.invalidateQueries({ queryKey: ["questionnaire", id] });
       setQuestionDialogOpen(false);
       resetQuestionForm();
     },
   });
 
   const deleteQuestionMutation = useMutation({
-    mutationFn: async ({ sectionId, questionId }: { sectionId: string; questionId: string }) => {
+    mutationFn: async ({
+      sectionId,
+      questionId,
+    }: {
+      sectionId: string;
+      questionId: string;
+    }) => {
       await api.delete(`/sections/${sectionId}/questions/${questionId}`);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['questionnaire', id] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["questionnaire", id] }),
   });
 
   // Option mutations
   const createOptionMutation = useMutation({
     mutationFn: async () => {
-      const isAllowed = optionIsAllowed === 'allowed' ? true : optionIsAllowed === 'not_allowed' ? false : null;
+      const isAllowed =
+        optionIsAllowed === "allowed"
+          ? true
+          : optionIsAllowed === "not_allowed"
+            ? false
+            : null;
       await api.post(`/questions/${optionQuestionId}/options`, {
         label: optionLabel,
         isAllowed,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['questionnaire', id] });
+      queryClient.invalidateQueries({ queryKey: ["questionnaire", id] });
       setOptionDialogOpen(false);
       resetOptionForm();
     },
   });
 
   const updateOptionMutation = useMutation({
-    mutationFn: async ({ questionId, optionId, isAllowed }: { questionId: string; optionId: string; isAllowed: boolean | null }) => {
-      await api.patch(`/questions/${questionId}/options/${optionId}`, { isAllowed });
+    mutationFn: async ({
+      questionId,
+      optionId,
+      isAllowed,
+    }: {
+      questionId: string;
+      optionId: string;
+      isAllowed: boolean | null;
+    }) => {
+      await api.patch(`/questions/${questionId}/options/${optionId}`, {
+        isAllowed,
+      });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['questionnaire', id] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["questionnaire", id] }),
   });
 
   const deleteOptionMutation = useMutation({
@@ -315,7 +376,8 @@ export default function QuestionnaireDetailPage() {
     }) => {
       await api.delete(`/questions/${questionId}/options/${optionId}`);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['questionnaire', id] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["questionnaire", id] }),
   });
 
   function toggleSection(sectionId: string) {
@@ -365,44 +427,64 @@ export default function QuestionnaireDetailPage() {
 
   function resetSectionForm() {
     setEditingSection(null);
-    setSectionTitle('');
-    setSectionDescription('');
+    setSectionTitle("");
+    setSectionDescription("");
     setSectionErrors({});
   }
 
   function resetQuestionForm() {
     setEditingQuestion(null);
-    setQuestionSectionId('');
-    setQuestionText('');
-    setQuestionHelpText('');
+    setQuestionSectionId("");
+    setQuestionText("");
+    setQuestionHelpText("");
     setQuestionRequired(false);
     setQuestionErrors({});
   }
 
   function resetOptionForm() {
-    setOptionQuestionId('');
-    setOptionLabel('');
-    setOptionIsAllowed('none');
+    setOptionQuestionId("");
+    setOptionLabel("");
+    setOptionIsAllowed("none");
     setOptionErrors({});
   }
 
   function handleSectionSubmit() {
-    const result = getFieldErrors(sectionSchema, { title: sectionTitle, description: sectionDescription || undefined });
-    if (!result.success) { setSectionErrors(result.errors); return; }
+    const result = getFieldErrors(sectionSchema, {
+      title: sectionTitle,
+      description: sectionDescription || undefined,
+    });
+    if (!result.success) {
+      setSectionErrors(result.errors);
+      return;
+    }
     setSectionErrors({});
-    editingSection ? updateSectionMutation.mutate() : createSectionMutation.mutate();
+    editingSection
+      ? updateSectionMutation.mutate()
+      : createSectionMutation.mutate();
   }
 
   function handleQuestionSubmit() {
-    const result = getFieldErrors(questionSchema, { prompt: questionText, helpText: questionHelpText || undefined, isRequired: questionRequired });
-    if (!result.success) { setQuestionErrors(result.errors); return; }
+    const result = getFieldErrors(questionSchema, {
+      prompt: questionText,
+      helpText: questionHelpText || undefined,
+      isRequired: questionRequired,
+    });
+    if (!result.success) {
+      setQuestionErrors(result.errors);
+      return;
+    }
     setQuestionErrors({});
-    editingQuestion ? updateQuestionMutation.mutate() : createQuestionMutation.mutate();
+    editingQuestion
+      ? updateQuestionMutation.mutate()
+      : createQuestionMutation.mutate();
   }
 
   function handleOptionSubmit() {
     const result = getFieldErrors(optionSchema, { label: optionLabel });
-    if (!result.success) { setOptionErrors(result.errors); return; }
+    if (!result.success) {
+      setOptionErrors(result.errors);
+      return;
+    }
     setOptionErrors({});
     createOptionMutation.mutate();
   }
@@ -410,7 +492,7 @@ export default function QuestionnaireDetailPage() {
   function openEditSection(section: Section) {
     setEditingSection(section);
     setSectionTitle(section.title);
-    setSectionDescription(section.description || '');
+    setSectionDescription(section.description || "");
     setSectionDialogOpen(true);
   }
 
@@ -424,7 +506,7 @@ export default function QuestionnaireDetailPage() {
     setEditingQuestion(question);
     setQuestionSectionId(sectionId);
     setQuestionText(question.prompt);
-    setQuestionHelpText(question.helpText || '');
+    setQuestionHelpText(question.helpText || "");
     setQuestionRequired(question.isRequired);
     setQuestionDialogOpen(true);
   }
@@ -451,22 +533,34 @@ export default function QuestionnaireDetailPage() {
   }
 
   if (!questionnaire) {
-    return <p className="py-8 text-center text-muted-foreground">Questionnaire not found</p>;
+    return (
+      <p className="py-8 text-center text-muted-foreground">
+        Questionnaire not found
+      </p>
+    );
   }
 
-  const sortedSections = [...(questionnaire.sections || [])].sort((a, b) => a.displayOrder - b.displayOrder);
-  const submittedSubmissions = (submissions ?? []).filter((s) => s.respondent !== null);
+  const sortedSections = [...(questionnaire.sections || [])].sort(
+    (a, b) => a.displayOrder - b.displayOrder,
+  );
+  const submittedSubmissions = (submissions ?? []).filter(
+    (s) => s.respondent !== null,
+  );
 
   return (
     <div className="space-y-6">
       <Breadcrumb className="mb-4">
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink asChild><Link to="/">Dashboard</Link></BreadcrumbLink>
+            <BreadcrumbLink asChild>
+              <Link to="/">Dashboard</Link>
+            </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbLink asChild><Link to="/questionnaires">Questionnaires</Link></BreadcrumbLink>
+            <BreadcrumbLink asChild>
+              <Link to="/questionnaires">Questionnaires</Link>
+            </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -482,18 +576,24 @@ export default function QuestionnaireDetailPage() {
           </Link>
         </Button>
         <div className="flex-1">
-          <h2 className="text-2xl font-bold tracking-tight">{questionnaire.title}</h2>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {questionnaire.title}
+          </h2>
           <p className="text-muted-foreground">{questionnaire.description}</p>
         </div>
-        <Badge variant={questionnaire.isPublished ? 'default' : 'secondary'}>
-          {questionnaire.isPublished ? 'Published' : 'Draft'}
+        <Badge variant={questionnaire.isPublished ? "default" : "secondary"}>
+          {questionnaire.isPublished ? "Published" : "Draft"}
         </Badge>
       </div>
 
       <Tabs defaultValue="sections">
         <TabsList>
-          <TabsTrigger value="sections">Sections ({sortedSections.length})</TabsTrigger>
-          <TabsTrigger value="submissions">Submissions ({submittedSubmissions.length})</TabsTrigger>
+          <TabsTrigger value="sections">
+            Sections ({sortedSections.length})
+          </TabsTrigger>
+          <TabsTrigger value="submissions">
+            Submissions ({submittedSubmissions.length})
+          </TabsTrigger>
         </TabsList>
 
         {/* Sections tab */}
@@ -513,192 +613,271 @@ export default function QuestionnaireDetailPage() {
           {sortedSections.length === 0 && (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
-                No sections yet. Add a section to start building your questionnaire.
+                No sections yet. Add a section to start building your
+                questionnaire.
               </CardContent>
             </Card>
           )}
 
           {sortedSections.map((section, sIdx) => {
-            const sortedQuestions = [...section.questions].sort((a, b) => a.displayOrder - b.displayOrder);
+            const sortedQuestions = [...section.questions].sort(
+              (a, b) => a.displayOrder - b.displayOrder,
+            );
             const isCollapsed = collapsedSections.has(section.id);
 
             return (
-              <Collapsible key={section.id} open={!isCollapsed} onOpenChange={() => toggleSection(section.id)}>
+              <Collapsible
+                key={section.id}
+                open={!isCollapsed}
+                onOpenChange={() => toggleSection(section.id)}
+              >
                 <Card
                   draggable
                   onDragStart={() => handleDragStart(sIdx)}
                   onDragEnter={() => handleDragEnter(sIdx)}
                   onDragEnd={handleDragEnd}
                   onDragOver={(e) => e.preventDefault()}
-                  className={`transition-opacity ${dragIdx === sIdx ? 'opacity-50' : ''}`}
+                  className={`transition-opacity ${dragIdx === sIdx ? "opacity-50" : ""}`}
                 >
                   <CollapsibleTrigger asChild>
                     <CardHeader className="cursor-pointer select-none">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="cursor-grab active:cursor-grabbing p-1 -ml-1"
-                        onClick={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                      >
-                        <GripVertical className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      {isCollapsed ? (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <div>
-                        <CardTitle className="text-lg">
-                          {section.code && <span className="text-primary mr-1">{section.code}.</span>}
-                          {section.title}
-                        </CardTitle>
-                        {section.description && (
-                          <CardDescription>{section.description}</CardDescription>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Badge variant="outline" className="text-xs mr-2">
-                        {section.questions.length} question{section.questions.length !== 1 ? 's' : ''}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditSection(section)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      {isOwner && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteTarget({ type: 'section', sectionId: section.id, label: section.title })}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="cursor-grab active:cursor-grabbing p-1 -ml-1"
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          >
+                            <GripVertical className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          {isCollapsed ? (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <div>
+                            <CardTitle className="text-lg">
+                              {section.code && (
+                                <span className="text-primary mr-1">
+                                  {section.code}.
+                                </span>
+                              )}
+                              {section.title}
+                            </CardTitle>
+                            {section.description && (
+                              <CardDescription>
+                                {section.description}
+                              </CardDescription>
+                            )}
+                          </div>
+                        </div>
+                        <div
+                          className="flex items-center gap-1"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                          <Badge variant="outline" className="text-xs mr-2">
+                            {section.questions.length} question
+                            {section.questions.length !== 1 ? "s" : ""}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditSection(section)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          {isOwner && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() =>
+                                setDeleteTarget({
+                                  type: "section",
+                                  sectionId: section.id,
+                                  label: section.title,
+                                })
+                              }
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </CardHeader>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <CardContent className="space-y-3">
-                    {sortedQuestions.map((question) => {
-                      const sortedOptions = [...question.options].sort(
-                        (a, b) => a.displayOrder - b.displayOrder,
-                      );
-                      return (
-                        <div
-                          key={question.id}
-                          className="rounded-lg border p-4 space-y-2"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium">
-                                  {question.code && <span className="text-primary mr-1">{question.code}</span>}
-                                  {question.prompt}
-                                </p>
-                                {question.isRequired && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Required
-                                  </Badge>
+                      {sortedQuestions.map((question) => {
+                        const sortedOptions = [...question.options].sort(
+                          (a, b) => a.displayOrder - b.displayOrder,
+                        );
+                        return (
+                          <div
+                            key={question.id}
+                            className="rounded-lg border p-4 space-y-2"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium">
+                                    {question.code && (
+                                      <span className="text-primary mr-1">
+                                        {question.code}
+                                      </span>
+                                    )}
+                                    {question.prompt}
+                                  </p>
+                                  {question.isRequired && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      Required
+                                    </Badge>
+                                  )}
+                                </div>
+                                {question.helpText && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {question.helpText}
+                                  </p>
                                 )}
                               </div>
-                              {question.helpText && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {question.helpText}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openEditQuestion(section.id, question)}
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDeleteTarget({ type: 'question', sectionId: section.id, questionId: question.id, label: question.prompt })}
-                              >
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* Answer Options */}
-                          <div className="ml-4 space-y-1">
-                            {sortedOptions.map((option) => (
-                              <div
-                                key={option.id}
-                                className="flex items-center justify-between text-sm"
-                              >
-                                <span className="flex items-center gap-2">
-                                  <span className="h-3 w-3 rounded-full border border-muted-foreground/40 flex-shrink-0" />
-                                  {option.label}
-                                  {option.isAllowed === true && (
-                                    <Badge variant="default" className="text-[10px] px-1.5 py-0">Allowed</Badge>
-                                  )}
-                                  {option.isAllowed === false && (
-                                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Not allowed</Badge>
-                                  )}
-                                </span>
-                                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                  <Select
-                                    value={option.isAllowed === true ? 'allowed' : option.isAllowed === false ? 'not_allowed' : 'none'}
-                                    onValueChange={(val) => {
-                                      const isAllowed = val === 'allowed' ? true : val === 'not_allowed' ? false : null;
-                                      updateOptionMutation.mutate({ questionId: question.id, optionId: option.id, isAllowed });
-                                    }}
-                                  >
-                                    <SelectTrigger className="h-7 w-[120px] text-xs">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="none">—</SelectItem>
-                                      <SelectItem value="allowed">Allowed</SelectItem>
-                                      <SelectItem value="not_allowed">Not allowed</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={() => setDeleteTarget({ type: 'option', sectionId: section.id, questionId: question.id, optionId: option.id, label: option.label })}
-                                  >
-                                    <Trash2 className="h-3 w-3 text-destructive" />
-                                  </Button>
-                                </div>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() =>
+                                    openEditQuestion(section.id, question)
+                                  }
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() =>
+                                    setDeleteTarget({
+                                      type: "question",
+                                      sectionId: section.id,
+                                      questionId: question.id,
+                                      label: question.prompt,
+                                    })
+                                  }
+                                >
+                                  <Trash2 className="h-3 w-3 text-destructive" />
+                                </Button>
                               </div>
-                            ))}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => openAddOption(question.id)}
-                            >
-                              <Plus className="h-3 w-3" />
-                              Add Answer Option
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                            </div>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openAddQuestion(section.id)}
-                      className="w-full"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add Question
-                    </Button>
-                  </CardContent>
+                            {/* Answer Options */}
+                            <div className="ml-4 space-y-1">
+                              {sortedOptions.map((option) => (
+                                <div
+                                  key={option.id}
+                                  className="flex items-center justify-between text-sm"
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <span className="h-3 w-3 rounded-full border border-muted-foreground/40 flex-shrink-0" />
+                                    {option.label}
+                                    {option.isAllowed === true && (
+                                      <Badge
+                                        variant="default"
+                                        className="text-[10px] px-1.5 py-0"
+                                      >
+                                        Allowed
+                                      </Badge>
+                                    )}
+                                    {option.isAllowed === false && (
+                                      <Badge
+                                        variant="destructive"
+                                        className="text-[10px] px-1.5 py-0"
+                                      >
+                                        Not allowed
+                                      </Badge>
+                                    )}
+                                  </span>
+                                  <div
+                                    className="flex items-center gap-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Select
+                                      value={
+                                        option.isAllowed === true
+                                          ? "allowed"
+                                          : option.isAllowed === false
+                                            ? "not_allowed"
+                                            : "none"
+                                      }
+                                      onValueChange={(val) => {
+                                        const isAllowed =
+                                          val === "allowed"
+                                            ? true
+                                            : val === "not_allowed"
+                                              ? false
+                                              : null;
+                                        updateOptionMutation.mutate({
+                                          questionId: question.id,
+                                          optionId: option.id,
+                                          isAllowed,
+                                        });
+                                      }}
+                                    >
+                                      <SelectTrigger className="h-7 w-[120px] text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">—</SelectItem>
+                                        <SelectItem value="allowed">
+                                          Allowed
+                                        </SelectItem>
+                                        <SelectItem value="not_allowed">
+                                          Not allowed
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={() =>
+                                        setDeleteTarget({
+                                          type: "option",
+                                          sectionId: section.id,
+                                          questionId: question.id,
+                                          optionId: option.id,
+                                          label: option.label,
+                                        })
+                                      }
+                                    >
+                                      <Trash2 className="h-3 w-3 text-destructive" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => openAddOption(question.id)}
+                              >
+                                <Plus className="h-3 w-3" />
+                                Add Answer Option
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openAddQuestion(section.id)}
+                        className="w-full"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add Question
+                      </Button>
+                    </CardContent>
                   </CollapsibleContent>
                 </Card>
               </Collapsible>
@@ -721,8 +900,11 @@ export default function QuestionnaireDetailPage() {
                 </TableHeader>
                 <TableBody>
                   {submittedSubmissions.map((sub) => {
-                    const isComplete = sub.submittedAt && sub._count.answers >= sub.totalQuestions && sub.totalQuestions > 0;
-                    const status = isComplete ? 'completed' : 'in_progress';
+                    const isComplete =
+                      sub.submittedAt &&
+                      sub._count.answers >= sub.totalQuestions &&
+                      sub.totalQuestions > 0;
+                    const status = isComplete ? "completed" : "in_progress";
                     return (
                       <TableRow
                         key={sub.id}
@@ -733,21 +915,35 @@ export default function QuestionnaireDetailPage() {
                         }}
                       >
                         <TableCell className="font-medium">
-                          {sub.respondent?.email || <span className="text-muted-foreground italic">Anonymous</span>}
+                          {sub.respondent?.email || (
+                            <span className="text-muted-foreground italic">
+                              Anonymous
+                            </span>
+                          )}
                           {sub.respondent?.isEmailVerified && (
-                            <Badge variant="outline" className="ml-2 text-xs">Verified</Badge>
+                            <Badge variant="outline" className="ml-2 text-xs">
+                              Verified
+                            </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{sub._count.answers} / {sub.totalQuestions}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {sub._count.answers} / {sub.totalQuestions}
+                        </TableCell>
                         <TableCell>
-                          <Badge variant={status === 'completed' ? 'default' : 'secondary'}>
-                            {status === 'completed' ? 'Completed' : 'Incomplete'}
+                          <Badge
+                            variant={
+                              status === "completed" ? "default" : "secondary"
+                            }
+                          >
+                            {status === "completed"
+                              ? "Completed"
+                              : "Incomplete"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {sub.submittedAt
                             ? new Date(sub.submittedAt).toLocaleDateString()
-                            : '—'}
+                            : "—"}
                         </TableCell>
                       </TableRow>
                     );
@@ -764,7 +960,10 @@ export default function QuestionnaireDetailPage() {
       </Tabs>
 
       {/* Submission detail dialog */}
-      <Dialog open={submissionDetailOpen} onOpenChange={setSubmissionDetailOpen}>
+      <Dialog
+        open={submissionDetailOpen}
+        onOpenChange={setSubmissionDetailOpen}
+      >
         <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -772,7 +971,8 @@ export default function QuestionnaireDetailPage() {
               Submission Detail
             </DialogTitle>
             <DialogDescription>
-              {submissionDetail?.respondent?.email} — {submissionDetail?.questionnaire?.title}
+              {submissionDetail?.respondent?.email} —{" "}
+              {submissionDetail?.questionnaire?.title}
             </DialogDescription>
           </DialogHeader>
 
@@ -782,16 +982,22 @@ export default function QuestionnaireDetailPage() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Respondent:</span>
-                    <p className="font-medium">{submissionDetail.respondent?.email ?? 'Anonymous'}</p>
+                    <p className="font-medium">
+                      {submissionDetail.respondent?.email ?? "Anonymous"}
+                    </p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Status:</span>
                     <p>
                       {(() => {
-                        const isComplete = submissionDetail.submittedAt && submissionDetail.answers.length >= submissionDetail.totalQuestions && submissionDetail.totalQuestions > 0;
+                        const isComplete =
+                          submissionDetail.submittedAt &&
+                          submissionDetail.answers.length >=
+                            submissionDetail.totalQuestions &&
+                          submissionDetail.totalQuestions > 0;
                         return (
-                          <Badge variant={isComplete ? 'default' : 'secondary'}>
-                            {isComplete ? 'Completed' : 'Incomplete'}
+                          <Badge variant={isComplete ? "default" : "secondary"}>
+                            {isComplete ? "Completed" : "Incomplete"}
                           </Badge>
                         );
                       })()}
@@ -807,8 +1013,10 @@ export default function QuestionnaireDetailPage() {
                     <span className="text-muted-foreground">Completed:</span>
                     <p className="font-medium">
                       {submissionDetail.submittedAt
-                        ? new Date(submissionDetail.submittedAt).toLocaleString()
-                        : '—'}
+                        ? new Date(
+                            submissionDetail.submittedAt,
+                          ).toLocaleString()
+                        : "—"}
                     </p>
                   </div>
                 </div>
@@ -816,13 +1024,18 @@ export default function QuestionnaireDetailPage() {
                 <Separator />
 
                 <div className="space-y-3">
-                  <h4 className="font-semibold">Answers ({submissionDetail.answers?.length ?? 0})</h4>
-                  {submissionDetail.answers && submissionDetail.answers.length > 0 ? (
+                  <h4 className="font-semibold">
+                    Answers ({submissionDetail.answers?.length ?? 0})
+                  </h4>
+                  {submissionDetail.answers &&
+                  submissionDetail.answers.length > 0 ? (
                     submissionDetail.answers.map((answer) => (
                       <div key={answer.id} className="rounded-lg border p-3">
                         <p className="text-sm font-medium">
                           {answer.question.code && (
-                            <span className="text-primary mr-1">{answer.question.code}</span>
+                            <span className="text-primary mr-1">
+                              {answer.question.code}
+                            </span>
                           )}
                           {answer.question.prompt}
                         </p>
@@ -832,7 +1045,9 @@ export default function QuestionnaireDetailPage() {
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-muted-foreground">No answers recorded</p>
+                    <p className="text-sm text-muted-foreground">
+                      No answers recorded
+                    </p>
                   )}
                 </div>
               </div>
@@ -849,9 +1064,13 @@ export default function QuestionnaireDetailPage() {
       <Dialog open={sectionDialogOpen} onOpenChange={setSectionDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingSection ? 'Edit Section' : 'Add Section'}</DialogTitle>
+            <DialogTitle>
+              {editingSection ? "Edit Section" : "Add Section"}
+            </DialogTitle>
             <DialogDescription>
-              {editingSection ? 'Update the section details' : 'Create a new section for this questionnaire'}
+              {editingSection
+                ? "Update the section details"
+                : "Create a new section for this questionnaire"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -860,10 +1079,18 @@ export default function QuestionnaireDetailPage() {
               <Input
                 placeholder="Section title"
                 value={sectionTitle}
-                onChange={(e) => { setSectionTitle(e.target.value); if (sectionErrors.title) setSectionErrors((p) => ({ ...p, title: undefined })); }}
-                className={sectionErrors.title ? 'border-destructive' : ''}
+                onChange={(e) => {
+                  setSectionTitle(e.target.value);
+                  if (sectionErrors.title)
+                    setSectionErrors((p) => ({ ...p, title: undefined }));
+                }}
+                className={sectionErrors.title ? "border-destructive" : ""}
               />
-              {sectionErrors.title && <p className="text-xs text-destructive">{sectionErrors.title}</p>}
+              {sectionErrors.title && (
+                <p className="text-xs text-destructive">
+                  {sectionErrors.title}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
@@ -875,12 +1102,15 @@ export default function QuestionnaireDetailPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSectionDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setSectionDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button onClick={handleSectionSubmit}>
               <Save className="h-4 w-4" />
-              {editingSection ? 'Save' : 'Create'}
+              {editingSection ? "Save" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -890,9 +1120,13 @@ export default function QuestionnaireDetailPage() {
       <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingQuestion ? 'Edit Question' : 'Add Question'}</DialogTitle>
+            <DialogTitle>
+              {editingQuestion ? "Edit Question" : "Add Question"}
+            </DialogTitle>
             <DialogDescription>
-              {editingQuestion ? 'Update the question' : 'Add a new question to this section'}
+              {editingQuestion
+                ? "Update the question"
+                : "Add a new question to this section"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -901,13 +1135,26 @@ export default function QuestionnaireDetailPage() {
               <Input
                 placeholder="Enter your question"
                 value={questionText}
-                onChange={(e) => { setQuestionText(e.target.value); if (questionErrors.prompt) setQuestionErrors((p) => ({ ...p, prompt: undefined })); }}
-                className={questionErrors.prompt ? 'border-destructive' : ''}
+                onChange={(e) => {
+                  setQuestionText(e.target.value);
+                  if (questionErrors.prompt)
+                    setQuestionErrors((p) => ({ ...p, prompt: undefined }));
+                }}
+                className={questionErrors.prompt ? "border-destructive" : ""}
               />
-              {questionErrors.prompt && <p className="text-xs text-destructive">{questionErrors.prompt}</p>}
+              {questionErrors.prompt && (
+                <p className="text-xs text-destructive">
+                  {questionErrors.prompt}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>Help Text <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Label>
+                Help Text{" "}
+                <span className="text-muted-foreground font-normal">
+                  (optional)
+                </span>
+              </Label>
               <Input
                 placeholder="Additional context or instructions for the respondent"
                 value={questionHelpText}
@@ -918,18 +1165,23 @@ export default function QuestionnaireDetailPage() {
               <Checkbox
                 id="required"
                 checked={questionRequired}
-                onCheckedChange={(checked) => setQuestionRequired(checked === true)}
+                onCheckedChange={(checked) =>
+                  setQuestionRequired(checked === true)
+                }
               />
               <Label htmlFor="required">Required</Label>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setQuestionDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setQuestionDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button onClick={handleQuestionSubmit}>
               <Save className="h-4 w-4" />
-              {editingQuestion ? 'Save' : 'Create'}
+              {editingQuestion ? "Save" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -940,7 +1192,9 @@ export default function QuestionnaireDetailPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Answer Option</DialogTitle>
-            <DialogDescription>Add a new answer option to this question</DialogDescription>
+            <DialogDescription>
+              Add a new answer option to this question
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -948,14 +1202,28 @@ export default function QuestionnaireDetailPage() {
               <Input
                 placeholder="e.g. Automatische regeling met timer"
                 value={optionLabel}
-                onChange={(e) => { setOptionLabel(e.target.value); if (optionErrors.label) setOptionErrors((p) => ({ ...p, label: undefined })); }}
-                className={optionErrors.label ? 'border-destructive' : ''}
+                onChange={(e) => {
+                  setOptionLabel(e.target.value);
+                  if (optionErrors.label)
+                    setOptionErrors((p) => ({ ...p, label: undefined }));
+                }}
+                className={optionErrors.label ? "border-destructive" : ""}
               />
-              {optionErrors.label && <p className="text-xs text-destructive">{optionErrors.label}</p>}
+              {optionErrors.label && (
+                <p className="text-xs text-destructive">{optionErrors.label}</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>Compliance status <span className="text-muted-foreground font-normal">(optional)</span></Label>
-              <Select value={optionIsAllowed} onValueChange={setOptionIsAllowed}>
+              <Label>
+                Compliance status{" "}
+                <span className="text-muted-foreground font-normal">
+                  (optional)
+                </span>
+              </Label>
+              <Select
+                value={optionIsAllowed}
+                onValueChange={setOptionIsAllowed}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -966,12 +1234,16 @@ export default function QuestionnaireDetailPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Mark as &quot;Not allowed&quot; to flag this answer in the PDF report when selected by a respondent.
+                Mark as &quot;Not allowed&quot; to flag this answer in the PDF
+                report when selected by a respondent.
               </p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOptionDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setOptionDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button onClick={handleOptionSubmit}>
@@ -983,18 +1255,26 @@ export default function QuestionnaireDetailPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {deleteTarget?.type === 'section' && 'Delete Section'}
-              {deleteTarget?.type === 'question' && 'Delete Question'}
-              {deleteTarget?.type === 'option' && 'Delete Option'}
+              {deleteTarget?.type === "section" && "Delete Section"}
+              {deleteTarget?.type === "question" && "Delete Question"}
+              {deleteTarget?.type === "option" && "Delete Option"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteTarget?.type === 'section' && `Are you sure you want to delete "${deleteTarget.label}" and all its questions? This action cannot be undone.`}
-              {deleteTarget?.type === 'question' && `Are you sure you want to delete this question? This action cannot be undone.`}
-              {deleteTarget?.type === 'option' && `Are you sure you want to delete the option "${deleteTarget.label}"? This action cannot be undone.`}
+              {deleteTarget?.type === "section" &&
+                `Are you sure you want to delete "${deleteTarget.label}" and all its questions? This action cannot be undone.`}
+              {deleteTarget?.type === "question" &&
+                `Are you sure you want to delete this question? This action cannot be undone.`}
+              {deleteTarget?.type === "option" &&
+                `Are you sure you want to delete the option "${deleteTarget.label}"? This action cannot be undone.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1003,12 +1283,26 @@ export default function QuestionnaireDetailPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
                 if (!deleteTarget) return;
-                if (deleteTarget.type === 'section') {
+                if (deleteTarget.type === "section") {
                   deleteSectionMutation.mutate(deleteTarget.sectionId);
-                } else if (deleteTarget.type === 'question' && deleteTarget.questionId) {
-                  deleteQuestionMutation.mutate({ sectionId: deleteTarget.sectionId, questionId: deleteTarget.questionId });
-                } else if (deleteTarget.type === 'option' && deleteTarget.questionId && deleteTarget.optionId) {
-                  deleteOptionMutation.mutate({ sectionId: deleteTarget.sectionId, questionId: deleteTarget.questionId, optionId: deleteTarget.optionId });
+                } else if (
+                  deleteTarget.type === "question" &&
+                  deleteTarget.questionId
+                ) {
+                  deleteQuestionMutation.mutate({
+                    sectionId: deleteTarget.sectionId,
+                    questionId: deleteTarget.questionId,
+                  });
+                } else if (
+                  deleteTarget.type === "option" &&
+                  deleteTarget.questionId &&
+                  deleteTarget.optionId
+                ) {
+                  deleteOptionMutation.mutate({
+                    sectionId: deleteTarget.sectionId,
+                    questionId: deleteTarget.questionId,
+                    optionId: deleteTarget.optionId,
+                  });
                 }
                 setDeleteTarget(null);
               }}

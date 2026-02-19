@@ -1,5 +1,6 @@
 import { Inject, Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { TENANT_REPOSITORY, ITenantRepository } from '../../../domain/repositories';
+import sanitizeHtml from 'sanitize-html';
 
 @Injectable()
 export class TenantsUseCase {
@@ -31,7 +32,7 @@ export class TenantsUseCase {
 
   async update(id: string, dto: any) {
     await this.findOne(id);
-    return this.tenantRepo.update(id, dto);
+    return this.tenantRepo.update(id, this.sanitizeTenantInput(dto));
   }
 
   async deactivate(id: string) {
@@ -89,6 +90,53 @@ export class TenantsUseCase {
       recentSubmissions30d,
       recentSubmissions,
       submissionsByDay,
+    };
+  }
+
+  private sanitizeTenantInput(dto: any) {
+    if (typeof dto?.verificationEmailTemplate !== 'string') {
+      return dto;
+    }
+
+    return {
+      ...dto,
+      verificationEmailTemplate: sanitizeHtml(dto.verificationEmailTemplate, {
+        allowedTags: [
+          'a',
+          'b',
+          'blockquote',
+          'br',
+          'div',
+          'em',
+          'h1',
+          'h2',
+          'h3',
+          'h4',
+          'h5',
+          'h6',
+          'hr',
+          'i',
+          'li',
+          'ol',
+          'p',
+          'span',
+          'strong',
+          'table',
+          'tbody',
+          'td',
+          'th',
+          'thead',
+          'tr',
+          'u',
+          'ul',
+        ],
+        allowedAttributes: {
+          a: ['href', 'name', 'target', 'rel', 'style'],
+          '*': ['style', 'class', 'id', 'title', 'data-ph', 'contenteditable'],
+        },
+        allowedSchemes: ['http', 'https', 'mailto'],
+        allowProtocolRelative: false,
+      }),
     };
   }
 }

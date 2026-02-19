@@ -1,21 +1,36 @@
-import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { Download, FileText } from 'lucide-react';
-import api from '@/lib/api';
-import { useAuth } from '@/lib/auth';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Separator } from '@/components/ui/separator';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import api from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Download, FileText } from "lucide-react";
+import { useEffect, useState } from "react";
 
 // Matches the actual API response from findByTenant
 interface SubmissionSummary {
@@ -46,22 +61,79 @@ interface SubmissionDetail {
   }>;
 }
 
+interface SubmissionFilters {
+  email: string;
+  questionnaire: string;
+  status: "all" | "completed" | "incomplete";
+  createdFrom: string;
+  createdTo: string;
+}
+
+function buildSubmissionQueryParams(filters: SubmissionFilters) {
+  return {
+    ...(filters.email ? { email: filters.email } : {}),
+    ...(filters.questionnaire ? { questionnaire: filters.questionnaire } : {}),
+    ...(filters.status !== "all" ? { status: filters.status } : {}),
+    ...(filters.createdFrom ? { createdFrom: filters.createdFrom } : {}),
+    ...(filters.createdTo ? { createdTo: filters.createdTo } : {}),
+  };
+}
+
+function useDebouncedValue<T>(value: T, delay = 350) {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(timeoutId);
+  }, [value, delay]);
+
+  return debounced;
+}
+
+function downloadBlobFile(blob: Blob, filename: string) {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 export default function SubmissionsPage() {
   const { user, isOwner } = useAuth();
-  const [selectedSubmission, setSelectedSubmission] = useState<string | null>(null);
+  const [selectedSubmission, setSelectedSubmission] = useState<string | null>(
+    null,
+  );
   const [detailOpen, setDetailOpen] = useState(false);
+  const [filters, setFilters] = useState<SubmissionFilters>({
+    email: "",
+    questionnaire: "",
+    status: "all",
+    createdFrom: "",
+    createdTo: "",
+  });
+  const debouncedFilters = useDebouncedValue(filters, 350);
 
-  const { data: submissions, isLoading } = useQuery<SubmissionSummary[]>({
-    queryKey: ['submissions', user?.tenantId],
+  const {
+    data: submissions,
+    isLoading,
+    isFetching: isRefetchingSubmissions,
+  } = useQuery<SubmissionSummary[]>({
+    queryKey: ["submissions", user?.tenantId, debouncedFilters],
     queryFn: async () => {
-      const { data } = await api.get(`/tenants/${user!.tenantId}/submissions`);
+      const { data } = await api.get(`/tenants/${user!.tenantId}/submissions`, {
+        params: buildSubmissionQueryParams(debouncedFilters),
+      });
       return data;
     },
     enabled: !!user?.tenantId,
+    placeholderData: (previousData) => previousData,
   });
 
   const { data: submissionDetail } = useQuery<SubmissionDetail>({
-    queryKey: ['submission-detail', selectedSubmission],
+    queryKey: ["submission-detail", selectedSubmission],
     queryFn: async () => {
       const { data } = await api.get(`/submissions/${selectedSubmission}`);
       return data;
@@ -71,17 +143,17 @@ export default function SubmissionsPage() {
 
   const exportMutation = useMutation({
     mutationFn: async () => {
-      const response = await api.get(`/tenants/${user!.tenantId}/submissions/export`, {
-        responseType: 'blob',
-      });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `submissions-${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      const response = await api.get(
+        `/tenants/${user!.tenantId}/submissions/export`,
+        {
+          params: buildSubmissionQueryParams(debouncedFilters),
+          responseType: "blob",
+        },
+      );
+      downloadBlobFile(
+        new Blob([response.data]),
+        `submissions-${new Date().toISOString().split("T")[0]}.csv`,
+      );
     },
   });
 
@@ -90,10 +162,9 @@ export default function SubmissionsPage() {
     setDetailOpen(true);
   }
 
-  // Filter: only show submissions that have a respondent (i.e. email was submitted)
-  const visibleSubmissions = submissions?.filter((s) => s.respondent !== null) ?? [];
+  const visibleSubmissions = submissions ?? [];
 
-  if (isLoading) {
+  if (isLoading && !submissions) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -121,14 +192,96 @@ export default function SubmissionsPage() {
           <h2 className="text-2xl font-bold tracking-tight">
             Submissions ({visibleSubmissions.length})
           </h2>
-          <p className="text-muted-foreground">View and export questionnaire submissions</p>
+          <p className="text-muted-foreground">
+            View and export questionnaire submissions
+          </p>
         </div>
         {isOwner && (
-          <Button onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending}>
+          <Button
+            onClick={() => exportMutation.mutate()}
+            disabled={exportMutation.isPending}
+          >
             <Download className="h-4 w-4" />
-            {exportMutation.isPending ? 'Exporting...' : 'Export CSV'}
+            {exportMutation.isPending ? "Exporting..." : "Export CSV"}
           </Button>
         )}
+      </div>
+
+      <div className="rounded-md border p-4">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+          <Input
+            placeholder="Filter by email"
+            value={filters.email}
+            onChange={(event) =>
+              setFilters((prev) => ({ ...prev, email: event.target.value }))
+            }
+          />
+          <Input
+            placeholder="Filter by questionnaire"
+            value={filters.questionnaire}
+            onChange={(event) =>
+              setFilters((prev) => ({
+                ...prev,
+                questionnaire: event.target.value,
+              }))
+            }
+          />
+          <Select
+            value={filters.status}
+            onValueChange={(value: "all" | "completed" | "incomplete") =>
+              setFilters((prev) => ({ ...prev, status: value }))
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="incomplete">Incomplete</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="date"
+            value={filters.createdFrom}
+            onChange={(event) =>
+              setFilters((prev) => ({
+                ...prev,
+                createdFrom: event.target.value,
+              }))
+            }
+          />
+          <Input
+            type="date"
+            value={filters.createdTo}
+            onChange={(event) =>
+              setFilters((prev) => ({
+                ...prev,
+                createdTo: event.target.value,
+              }))
+            }
+          />
+        </div>
+        <div className="mt-3 flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            Filter inputs are debounced and only refresh the table.
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              setFilters({
+                email: "",
+                questionnaire: "",
+                status: "all",
+                createdFrom: "",
+                createdTo: "",
+              })
+            }
+          >
+            Clear filters
+          </Button>
+        </div>
       </div>
 
       {visibleSubmissions.length > 0 ? (
@@ -144,9 +297,19 @@ export default function SubmissionsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {isRefetchingSubmissions ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    Updating table...
+                  </TableCell>
+                </TableRow>
+              ) : null}
               {visibleSubmissions.map((sub) => {
-                const isComplete = sub.submittedAt && sub._count.answers >= sub.totalQuestions && sub.totalQuestions > 0;
-                const status = isComplete ? 'completed' : 'in_progress';
+                const isComplete =
+                  sub.submittedAt &&
+                  sub._count.answers >= sub.totalQuestions &&
+                  sub.totalQuestions > 0;
+                const status = isComplete ? "completed" : "in_progress";
                 return (
                   <TableRow
                     key={sub.id}
@@ -156,20 +319,28 @@ export default function SubmissionsPage() {
                     <TableCell className="font-medium">
                       {sub.respondent?.email}
                       {sub.respondent?.isEmailVerified && (
-                        <Badge variant="outline" className="ml-2 text-xs">Verified</Badge>
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          Verified
+                        </Badge>
                       )}
                     </TableCell>
                     <TableCell>{sub.questionnaire.title}</TableCell>
-                    <TableCell className="text-muted-foreground">{sub._count.answers} / {sub.totalQuestions}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {sub._count.answers} / {sub.totalQuestions}
+                    </TableCell>
                     <TableCell>
-                      <Badge variant={status === 'completed' ? 'default' : 'secondary'}>
-                        {status === 'completed' ? 'Completed' : 'Incomplete'}
+                      <Badge
+                        variant={
+                          status === "completed" ? "default" : "secondary"
+                        }
+                      >
+                        {status === "completed" ? "Completed" : "Incomplete"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {sub.submittedAt
                         ? new Date(sub.submittedAt).toLocaleDateString()
-                        : '—'}
+                        : "—"}
                     </TableCell>
                   </TableRow>
                 );
@@ -178,7 +349,9 @@ export default function SubmissionsPage() {
           </Table>
         </div>
       ) : (
-        <p className="py-8 text-center text-muted-foreground">No submissions yet</p>
+        <p className="py-8 text-center text-muted-foreground">
+          No submissions yet
+        </p>
       )}
 
       {/* Submission detail dialog */}
@@ -190,7 +363,8 @@ export default function SubmissionsPage() {
               Submission Detail
             </DialogTitle>
             <DialogDescription>
-              {submissionDetail?.respondent?.email} — {submissionDetail?.questionnaire?.title}
+              {submissionDetail?.respondent?.email} —{" "}
+              {submissionDetail?.questionnaire?.title}
             </DialogDescription>
           </DialogHeader>
 
@@ -200,16 +374,22 @@ export default function SubmissionsPage() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Respondent:</span>
-                    <p className="font-medium">{submissionDetail.respondent?.email ?? 'Anonymous'}</p>
+                    <p className="font-medium">
+                      {submissionDetail.respondent?.email ?? "Anonymous"}
+                    </p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Status:</span>
                     <p>
                       {(() => {
-                        const isComplete = submissionDetail.submittedAt && submissionDetail.answers.length >= submissionDetail.totalQuestions && submissionDetail.totalQuestions > 0;
+                        const isComplete =
+                          submissionDetail.submittedAt &&
+                          submissionDetail.answers.length >=
+                            submissionDetail.totalQuestions &&
+                          submissionDetail.totalQuestions > 0;
                         return (
-                          <Badge variant={isComplete ? 'default' : 'secondary'}>
-                            {isComplete ? 'Completed' : 'Incomplete'}
+                          <Badge variant={isComplete ? "default" : "secondary"}>
+                            {isComplete ? "Completed" : "Incomplete"}
                           </Badge>
                         );
                       })()}
@@ -225,8 +405,10 @@ export default function SubmissionsPage() {
                     <span className="text-muted-foreground">Completed:</span>
                     <p className="font-medium">
                       {submissionDetail.submittedAt
-                        ? new Date(submissionDetail.submittedAt).toLocaleString()
-                        : '—'}
+                        ? new Date(
+                            submissionDetail.submittedAt,
+                          ).toLocaleString()
+                        : "—"}
                     </p>
                   </div>
                 </div>
@@ -234,13 +416,18 @@ export default function SubmissionsPage() {
                 <Separator />
 
                 <div className="space-y-3">
-                  <h4 className="font-semibold">Answers ({submissionDetail.answers?.length ?? 0})</h4>
-                  {submissionDetail.answers && submissionDetail.answers.length > 0 ? (
+                  <h4 className="font-semibold">
+                    Answers ({submissionDetail.answers?.length ?? 0})
+                  </h4>
+                  {submissionDetail.answers &&
+                  submissionDetail.answers.length > 0 ? (
                     submissionDetail.answers.map((answer) => (
                       <div key={answer.id} className="rounded-lg border p-3">
                         <p className="text-sm font-medium">
                           {answer.question.code && (
-                            <span className="text-primary mr-1">{answer.question.code}</span>
+                            <span className="text-primary mr-1">
+                              {answer.question.code}
+                            </span>
                           )}
                           {answer.question.prompt}
                         </p>
@@ -250,7 +437,9 @@ export default function SubmissionsPage() {
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-muted-foreground">No answers recorded</p>
+                    <p className="text-sm text-muted-foreground">
+                      No answers recorded
+                    </p>
                   )}
                 </div>
               </div>

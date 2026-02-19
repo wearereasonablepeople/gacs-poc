@@ -57,6 +57,7 @@ model Tenant {
   subtextColor    String?  @map("subtext_color") @db.VarChar(7)
   logoUrl         String?  @map("logo_url")
   faviconUrl      String?  @map("favicon_url")
+  verificationEmailTemplate String? @map("verification_email_template")
   isActive       Boolean  @default(true) @map("is_active")
   retentionDays  Int      @default(365) @map("retention_days")
   createdById    String   @map("created_by") @db.Uuid

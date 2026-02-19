@@ -314,8 +314,13 @@ export function QuestionnairePage() {
         await api.post(`/submissions/${sid}/email`, { email, consentGiven: true });
       } catch (err: any) {
         const errMsg: string = err?.response?.data?.message || '';
-        // If the old submission was already finalized, create a fresh one and retry
-        if (errMsg.toLowerCase().includes('already finalized') || errMsg.toLowerCase().includes('already consumed')) {
+        // If the old submission is no longer usable, create a fresh one and retry.
+        const shouldRecreateSubmission =
+          errMsg.toLowerCase().includes('already finalized')
+          || errMsg.toLowerCase().includes('already consumed')
+          || errMsg.toLowerCase().includes('submission not found');
+
+        if (shouldRecreateSubmission) {
           if (!questionnaire) throw new Error('Vragenlijst niet geladen.');
           const { data } = await api.post('/submissions/start', { questionnaireId: questionnaire.id });
           sid = data.id;

@@ -1,4 +1,10 @@
-import { IsBoolean, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from "class-validator";
 
 export class UpdateTenantDto {
   @IsOptional()
@@ -8,22 +14,22 @@ export class UpdateTenantDto {
 
   @IsOptional()
   @IsString()
-  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'Must be a valid hex color' })
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
   primaryColor?: string;
 
   @IsOptional()
   @IsString()
-  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'Must be a valid hex color' })
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
   secondaryColor?: string;
 
   @IsOptional()
   @IsString()
-  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'Must be a valid hex color' })
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
   headerTextColor?: string;
 
   @IsOptional()
   @IsString()
-  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'Must be a valid hex color' })
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
   subtextColor?: string;
 
   @IsOptional()
@@ -33,6 +39,11 @@ export class UpdateTenantDto {
   @IsOptional()
   @IsString()
   faviconUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50000)
+  verificationEmailTemplate?: string;
 
   @IsOptional()
   @IsBoolean()
