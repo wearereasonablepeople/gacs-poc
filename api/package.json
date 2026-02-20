@@ -37,7 +37,7 @@
     "uuid": "^10.0.0"
   },
   "devDependencies": {
-    "@nestjs/cli": "^10.4.0",
+    "@nestjs/cli": "^11.0.16",
     "@nestjs/schematics": "^10.1.0",
     "@types/bcrypt": "^5.0.2",
     "@types/connect-pg-simple": "^7.0.3",
