@@ -1,8 +1,9 @@
-import { SubmissionAnswerEntity } from './submissionanswer.entity';
-import { RespondentEntity } from './respondent.entity';
-import { QuestionnaireEntity } from './questionnaire.entity';
+import { QuestionnaireEntity } from "./questionnaire.entity";
+import { RespondentEntity } from "./respondent.entity";
+import { SubmissionAnswerEntity } from "./submissionanswer.entity";
 
-export type SubmissionStatusFilter = 'all' | 'completed' | 'incomplete';
+export type SubmissionLeadStatus = "open" | "in_progress" | "closed";
+export type SubmissionStatusFilter = "all" | SubmissionLeadStatus;
 
 export interface SubmissionFilters {
   email?: string;
@@ -17,6 +18,7 @@ export interface SubmissionEntity {
   id: string;
   questionnaireId: string;
   respondentId: string | null;
+  leadStatus: SubmissionLeadStatus;
   startedAt: Date;
   submittedAt: Date | null;
   createdAt: Date;

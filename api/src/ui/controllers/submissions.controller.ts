@@ -1,8 +1,11 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
+  UnauthorizedException,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -11,7 +14,11 @@ import {
 import { Request } from "express";
 import { GdprUseCase } from "../../app/usecase/gdpr/gdpr.usecase";
 import { SubmissionsUseCase } from "../../app/usecase/submissions/submissions.usecase";
-import { SubmissionFilters, SubmissionStatusFilter } from "../../domain/entities";
+import {
+  SubmissionFilters,
+  SubmissionLeadStatus,
+  SubmissionStatusFilter,
+} from "../../domain/entities";
 import { Roles } from "../decorators";
 import { AuthenticatedGuard, RolesGuard } from "../guards";
 
@@ -37,6 +44,22 @@ export class SubmissionsController {
       body.questionId,
       body.selectedOptionId,
     );
+  }
+
+  @Patch("submissions/:id/lead-status")
+  @UseGuards(AuthenticatedGuard, RolesGuard)
+  @Roles("tenant_owner", "tenant_admin")
+  updateLeadStatus(
+    @Param("id") id: string,
+    @Req() req: Request,
+    @Body() body: { leadStatus?: SubmissionLeadStatus },
+  ) {
+    const user = req.user as { tenantId?: string } | undefined;
+    if (!user?.tenantId) {
+      throw new UnauthorizedException("Unauthorized");
+    }
+    const leadStatus = this.parseLeadStatus(body?.leadStatus);
+    return this.useCase.updateLeadStatus(id, user.tenantId, leadStatus);
   }
 
   @Get("submissions/:id")
@@ -131,10 +154,20 @@ export class SubmissionsController {
     return {
       email,
       questionnaire,
-      status: status === "completed" || status === "incomplete" ? status : "all",
+      status:
+        status === "open" || status === "in_progress" || status === "closed"
+          ? status
+          : "all",
       createdFrom: createdFrom ? new Date(createdFrom) : undefined,
       createdTo: createdTo ? new Date(createdTo) : undefined,
       hasRespondent: true,
     };
+  }
+
+  private parseLeadStatus(value?: SubmissionLeadStatus): SubmissionLeadStatus {
+    if (value === "open" || value === "in_progress" || value === "closed") {
+      return value;
+    }
+    throw new BadRequestException("Invalid lead status");
   }
 }

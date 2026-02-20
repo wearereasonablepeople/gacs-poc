@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/table";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -38,6 +38,7 @@ interface SubmissionSummary {
   startedAt: string;
   submittedAt: string | null;
   createdAt: string;
+  leadStatus: "open" | "in_progress" | "closed";
   questionnaire: { title: string; slug: string };
   respondent: { email: string; isEmailVerified: boolean } | null;
   _count: { answers: number };
@@ -50,6 +51,7 @@ interface SubmissionDetail {
   startedAt: string;
   submittedAt: string | null;
   createdAt: string;
+  leadStatus: "open" | "in_progress" | "closed";
   questionnaire: { id: string; title: string; slug: string };
   respondent: { id: string; email: string; isEmailVerified: boolean } | null;
   totalQuestions: number;
@@ -64,7 +66,7 @@ interface SubmissionDetail {
 interface SubmissionFilters {
   email: string;
   questionnaire: string;
-  status: "all" | "completed" | "incomplete";
+  status: "all" | "open" | "in_progress" | "closed";
   createdFrom: string;
   createdTo: string;
 }
@@ -103,6 +105,7 @@ function downloadBlobFile(blob: Blob, filename: string) {
 
 export default function SubmissionsPage() {
   const { user, isOwner } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedSubmission, setSelectedSubmission] = useState<string | null>(
     null,
   );
@@ -139,6 +142,24 @@ export default function SubmissionsPage() {
       return data;
     },
     enabled: !!selectedSubmission && detailOpen,
+  });
+
+  const updateLeadStatusMutation = useMutation({
+    mutationFn: async ({
+      submissionId,
+      leadStatus,
+    }: {
+      submissionId: string;
+      leadStatus: "open" | "in_progress" | "closed";
+    }) => {
+      await api.patch(`/submissions/${submissionId}/lead-status`, { leadStatus });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["submissions", user?.tenantId] });
+      queryClient.invalidateQueries({
+        queryKey: ["submission-detail", selectedSubmission],
+      });
+    },
   });
 
   const exportMutation = useMutation({
@@ -228,7 +249,7 @@ export default function SubmissionsPage() {
           />
           <Select
             value={filters.status}
-            onValueChange={(value: "all" | "completed" | "incomplete") =>
+            onValueChange={(value: "all" | "open" | "in_progress" | "closed") =>
               setFilters((prev) => ({ ...prev, status: value }))
             }
           >
@@ -237,8 +258,9 @@ export default function SubmissionsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="incomplete">Incomplete</SelectItem>
+              <SelectItem value="open">Open</SelectItem>
+              <SelectItem value="in_progress">In behandeling</SelectItem>
+              <SelectItem value="closed">Afgehandeld</SelectItem>
             </SelectContent>
           </Select>
           <Input
@@ -308,11 +330,6 @@ export default function SubmissionsPage() {
                 </TableRow>
               ) : null}
               {visibleSubmissions.map((sub) => {
-                const isComplete =
-                  sub.submittedAt &&
-                  sub._count.answers >= sub.totalQuestions &&
-                  sub.totalQuestions > 0;
-                const status = isComplete ? "completed" : "in_progress";
                 return (
                   <TableRow
                     key={sub.id}
@@ -332,13 +349,29 @@ export default function SubmissionsPage() {
                       {sub._count.answers} / {sub.totalQuestions}
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          status === "completed" ? "default" : "secondary"
-                        }
+                      <div
+                        className="flex items-center gap-2"
+                        onClick={(event) => event.stopPropagation()}
                       >
-                        {status === "completed" ? "Completed" : "Incomplete"}
-                      </Badge>
+                        <Select
+                          value={sub.leadStatus}
+                          onValueChange={(value: "open" | "in_progress" | "closed") =>
+                            updateLeadStatusMutation.mutate({
+                              submissionId: sub.id,
+                              leadStatus: value,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-[150px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="open">Open</SelectItem>
+                            <SelectItem value="in_progress">In behandeling</SelectItem>
+                            <SelectItem value="closed">Afgehandeld</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {sub.submittedAt
@@ -383,20 +416,26 @@ export default function SubmissionsPage() {
                   </div>
                   <div>
                     <span className="text-muted-foreground">Status:</span>
-                    <p>
-                      {(() => {
-                        const isComplete =
-                          submissionDetail.submittedAt &&
-                          submissionDetail.answers.length >=
-                            submissionDetail.totalQuestions &&
-                          submissionDetail.totalQuestions > 0;
-                        return (
-                          <Badge variant={isComplete ? "default" : "secondary"}>
-                            {isComplete ? "Completed" : "Incomplete"}
-                          </Badge>
-                        );
-                      })()}
-                    </p>
+                    <div className="mt-1">
+                      <Select
+                        value={submissionDetail.leadStatus}
+                        onValueChange={(value: "open" | "in_progress" | "closed") =>
+                          updateLeadStatusMutation.mutate({
+                            submissionId: submissionDetail.id,
+                            leadStatus: value,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-8 w-[170px] text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="open">Open</SelectItem>
+                          <SelectItem value="in_progress">In behandeling</SelectItem>
+                          <SelectItem value="closed">Afgehandeld</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Started:</span>

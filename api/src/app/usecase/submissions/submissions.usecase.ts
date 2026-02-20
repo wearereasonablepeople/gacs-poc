@@ -5,6 +5,10 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import {
+  SubmissionFilters,
+  SubmissionLeadStatus,
+} from "../../../domain/entities";
+import {
   IQuestionnaireRepository,
   IQuestionOptionRepository,
   ISubmissionRepository,
@@ -12,10 +16,6 @@ import {
   QUESTIONNAIRE_REPOSITORY,
   SUBMISSION_REPOSITORY,
 } from "../../../domain/repositories";
-import {
-  SubmissionFilters,
-  SubmissionStatusFilter,
-} from "../../../domain/entities";
 
 @Injectable()
 export class SubmissionsUseCase {
@@ -72,7 +72,12 @@ export class SubmissionsUseCase {
       0,
     );
     const { sections: _sections, ...questionnaire } = submission.questionnaire;
-    return { ...submission, questionnaire, totalQuestions };
+    return {
+      ...submission,
+      questionnaire,
+      totalQuestions,
+      leadStatus: (submission.leadStatus ?? "open") as SubmissionLeadStatus,
+    };
   }
 
   async findByQuestionnaire(questionnaireId: string) {
@@ -84,47 +89,85 @@ export class SubmissionsUseCase {
         0,
       );
       const { questionnaire: _q, ...rest } = s;
-      return { ...rest, totalQuestions };
+      return {
+        ...rest,
+        totalQuestions,
+        leadStatus: (s.leadStatus ?? "open") as SubmissionLeadStatus,
+      };
     });
   }
 
   async findByTenant(tenantId: string, filters?: SubmissionFilters) {
     const submissions = await this.submissionRepo.findByTenant(tenantId, filters);
-    return this.applyStatusFilter(submissions, filters?.status);
-  }
-
-  async exportByTenant(tenantId: string, filters?: SubmissionFilters) {
-    const submissions = await this.submissionRepo.exportByTenant(tenantId, filters);
-    return this.applyStatusFilter(submissions, filters?.status).map((submission: any) => ({
-      Respondent: submission.respondent?.email ?? "",
-      Questionnaire: submission.questionnaire?.title ?? "",
-      Answers: `${submission._count.answers} / ${submission.totalQuestions}`,
-      Status: submission.status === "completed" ? "Completed" : "Incomplete",
-      Completed: submission.submittedAt
-        ? new Date(submission.submittedAt).toLocaleDateString()
-        : "—",
-    }));
-  }
-
-  private applyStatusFilter(submissions: any[], status?: SubmissionStatusFilter) {
-    const statusFilter: SubmissionStatusFilter = status ?? "all";
-    return submissions
-      .map((s: any) => {
+    return submissions.map((s: any) => {
       const totalQuestions = s.questionnaire.sections.reduce(
         (sum: number, sec: any) => sum + sec._count.questions,
         0,
       );
       const { sections: _sections, ...questionnaire } = s.questionnaire;
-      const isComplete =
-        Boolean(s.submittedAt) &&
-        s._count.answers >= totalQuestions &&
-        totalQuestions > 0;
-      return { ...s, questionnaire, totalQuestions, status: isComplete ? "completed" : "incomplete" };
-    })
-      .filter((submission: any) => {
-        if (statusFilter === "all") return true;
-        return submission.status === statusFilter;
-      });
+      return {
+        ...s,
+        questionnaire,
+        totalQuestions,
+        leadStatus: (s.leadStatus ?? "open") as SubmissionLeadStatus,
+      };
+    });
+  }
+
+  async exportByTenant(tenantId: string, filters?: SubmissionFilters) {
+    const submissions = await this.submissionRepo.exportByTenant(
+      tenantId,
+      filters,
+    );
+    return submissions
+      .map((s: any) => {
+        const totalQuestions = s.questionnaire.sections.reduce(
+          (sum: number, sec: any) => sum + sec._count.questions,
+          0,
+        );
+        const { sections: _sections, ...questionnaire } = s.questionnaire;
+        return {
+          ...s,
+          questionnaire,
+          totalQuestions,
+          leadStatus: (s.leadStatus ?? "open") as SubmissionLeadStatus,
+        };
+      })
+      .map((submission: any) => ({
+        Respondent: submission.respondent?.email ?? "",
+        Questionnaire: submission.questionnaire?.title ?? "",
+        Answers: `${submission._count.answers} / ${submission.totalQuestions}`,
+        Status:
+          submission.leadStatus === "open"
+            ? "Open"
+            : submission.leadStatus === "in_progress"
+              ? "In behandeling"
+              : "Afgehandeld",
+        Completed: submission.submittedAt
+          ? new Date(submission.submittedAt).toLocaleDateString()
+          : "—",
+      }));
+  }
+
+  async updateLeadStatus(
+    submissionId: string,
+    tenantId: string,
+    leadStatus: SubmissionLeadStatus,
+  ) {
+    const submission = await this.submissionRepo.findOneWithDetails(submissionId);
+    if (!submission) throw new NotFoundException("Submission not found");
+    if (submission.questionnaire?.tenantId !== tenantId) {
+      throw new NotFoundException("Submission not found");
+    }
+
+    const updated = await this.submissionRepo.update(submissionId, {
+      leadStatus,
+    } as any);
+
+    return {
+      id: updated.id,
+      leadStatus: (updated as any).leadStatus ?? leadStatus,
+    };
   }
 
   async getPdfData(id: string) {
@@ -182,33 +225,36 @@ export class SubmissionsUseCase {
       throw new NotFoundException("Questionnaire not found or not published");
     }
 
-    const sections = ((questionnaire as any).sections ?? []).map((section: any) => ({
-      code: section.code,
-      title: section.title,
-      questions: (section.questions ?? []).map((question: any) => {
-        const selectedOptionId = answers?.[question.id];
-        const selectedOption =
-          question.options?.find((option: any) => option.id === selectedOptionId) ??
-          null;
-        const allowedOptions = (question.options ?? [])
-          .filter((option: any) => option.isAllowed === true)
-          .map((option: any) => option.label);
+    const sections = ((questionnaire as any).sections ?? []).map(
+      (section: any) => ({
+        code: section.code,
+        title: section.title,
+        questions: (section.questions ?? []).map((question: any) => {
+          const selectedOptionId = answers?.[question.id];
+          const selectedOption =
+            question.options?.find(
+              (option: any) => option.id === selectedOptionId,
+            ) ?? null;
+          const allowedOptions = (question.options ?? [])
+            .filter((option: any) => option.isAllowed === true)
+            .map((option: any) => option.label);
 
-        return {
-          code: question.code,
-          prompt: question.prompt,
-          selectedOption: selectedOption
-            ? {
-                id: selectedOption.id,
-                label: selectedOption.label,
-                groupLabel: selectedOption.groupLabel ?? null,
-                isAllowed: selectedOption.isAllowed ?? null,
-              }
-            : null,
-          allowedOptions,
-        };
+          return {
+            code: question.code,
+            prompt: question.prompt,
+            selectedOption: selectedOption
+              ? {
+                  id: selectedOption.id,
+                  label: selectedOption.label,
+                  groupLabel: selectedOption.groupLabel ?? null,
+                  isAllowed: selectedOption.isAllowed ?? null,
+                }
+              : null,
+            allowedOptions,
+          };
+        }),
       }),
-    }));
+    );
 
     let totalScored = 0;
     let totalGraded = 0;
@@ -247,7 +293,10 @@ export class SubmissionsUseCase {
 
     for (const section of sections) {
       for (const question of section.questions) {
-        if (!question.selectedOption || question.selectedOption.isAllowed !== false) {
+        if (
+          !question.selectedOption ||
+          question.selectedOption.isAllowed !== false
+        ) {
           continue;
         }
         const selectedLabel = question.selectedOption.groupLabel
@@ -278,5 +327,4 @@ export class SubmissionsUseCase {
       },
     };
   }
-
 }

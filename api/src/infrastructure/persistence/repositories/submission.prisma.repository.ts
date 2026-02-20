@@ -67,7 +67,10 @@ export class PrismaSubmissionRepository implements ISubmissionRepository {
     });
   }
 
-  async findByTenant(tenantId: string, filters?: SubmissionFilters): Promise<any[]> {
+  async findByTenant(
+    tenantId: string,
+    filters?: SubmissionFilters,
+  ): Promise<any[]> {
     return this.prisma.submission.findMany({
       where: this.buildTenantFilters(tenantId, filters),
       orderBy: { createdAt: "desc" },
@@ -129,7 +132,10 @@ export class PrismaSubmissionRepository implements ISubmissionRepository {
     });
   }
 
-  async exportByTenant(tenantId: string, filters?: SubmissionFilters): Promise<any[]> {
+  async exportByTenant(
+    tenantId: string,
+    filters?: SubmissionFilters,
+  ): Promise<any[]> {
     return this.prisma.submission.findMany({
       where: this.buildTenantFilters(tenantId, filters),
       orderBy: { createdAt: "desc" },
@@ -176,13 +182,18 @@ export class PrismaSubmissionRepository implements ISubmissionRepository {
             }
           : {}),
       },
-      ...(filters?.hasRespondent !== false ? { respondentId: { not: null } } : {}),
+      ...(filters?.hasRespondent !== false
+        ? { respondentId: { not: null } }
+        : {}),
       ...(filters?.email
         ? {
             respondent: {
               email: { contains: filters.email, mode: "insensitive" as const },
             },
           }
+        : {}),
+      ...(filters?.status && filters.status !== "all"
+        ? { leadStatus: filters.status }
         : {}),
       ...(hasCreatedFilter ? { createdAt } : {}),
     };
