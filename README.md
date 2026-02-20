@@ -2,6 +2,8 @@
 
 A **whitelabel, multi-tenant questionnaire platform** built for GACS (Gebouwautomatiserings- en Controlesystemen) compliance checking, conforming to NEN-EN-ISO 52120.
 
+Tenants can create compliance questionnaires, track respondent submissions as leads, customize email templates, and export results — all under their own branding.
+
 ---
 
 ## Architecture Overview
@@ -43,7 +45,75 @@ A **whitelabel, multi-tenant questionnaire platform** built for GACS (Gebouwauto
 - **Backend:** NestJS, Prisma ORM, PostgreSQL
 - **Frontend:** React 18, Vite, TypeScript, shadcn/ui, Tailwind CSS, TanStack Query
 - **Auth:** Session cookies (express-session + connect-pg-simple + Passport)
+- **Email:** Nodemailer + tenant-customizable HTML templates (TinyMCE editor)
+- **PDF:** Client-side generation with jsPDF
 - **Containerization:** Docker Compose
+
+---
+
+## Key Features
+
+### Compliance Scoring
+
+Every answer option can be marked **Allowed** or **Not allowed** based on the [RVO GACS checklist](https://www.rvo.nl/sites/default/files/2024-01/checklist-technische-eisen-gacs-v3.pdf). The seed data ships with all options pre-classified.
+
+Scores are calculated per section and overall:
+- Displayed in the **generated PDF** (score overview, section bar chart, motivational message)
+- Displayed on the **instant results page** when using `skipEmailStep` mode
+- Motivational messages encourage the respondent to contact the tenant based on their score
+
+### Lead Tracking
+
+Submissions act as **leads** with a status workflow:
+
+| Status | Meaning |
+|--------|---------|
+| **Open** | Tenant must still contact the respondent |
+| **In behandeling** | Tenant is actively following up |
+| **Afgehandeld** | Lead process is complete |
+
+Tenants can change lead status directly from the submissions table or the submission detail dialog in `/reporting`. Status is filterable and included in CSV exports.
+
+### Custom Email Templates
+
+Tenants can create HTML email templates via a **TinyMCE rich-text editor** in the Branding page (`/reporting`). Templates support placeholder chips (`{{tenantName}}`, `{{verificationUrl}}`, `{{recipientEmail}}`), live preview, and server-side HTML sanitization.
+
+### Notification Emails
+
+When a respondent successfully submits, a notification email is sent to the tenant's configurable `notificationEmail` address (set in Branding).
+
+### Whitelabel Branding
+
+Each tenant has customizable branding applied at runtime:
+
+| Setting | Description |
+|---------|-------------|
+| **Name** | Displayed in questionnaire header |
+| **Slug** | URL identifier (`/croonwolterdros/gacs-compliance-check`) |
+| **Primary Color** | Applied via CSS custom properties |
+| **Secondary Color** | Page background / accents |
+| **Header Text Color** | Override for header text contrast |
+| **Subtext Color** | Help text / descriptions |
+| **Logo URL** | Questionnaire header logo |
+| **Favicon URL** | Browser tab icon |
+
+### Offline Support
+
+The respondent UI (`/ui`) supports offline usage:
+- Answers are persisted to `localStorage` as a draft
+- Failed API calls are queued and auto-synced when connectivity returns
+- Cached questionnaire data is used as fallback when offline
+
+### Testing Query Parameters
+
+The `/ui` app supports special query parameters for development/testing:
+
+| Parameter | Effect |
+|-----------|--------|
+| `skipEmailStep=1` | Bypasses email verification, shows instant results locally (no backend calls) |
+| `prefilled=1` | Randomly answers all questions and jumps to the last section |
+
+Both parameters work together and re-apply on restart.
 
 ---
 
@@ -54,8 +124,8 @@ A **whitelabel, multi-tenant questionnaire platform** built for GACS (Gebouwauto
 | Role | Scope | Key Permissions |
 |------|-------|-----------------|
 | **Platform Admin** | Global | Create/deactivate tenants, create owner accounts |
-| **Tenant Owner** | Their tenant | Full control: branding, users, questionnaires, publishing, deletion, export |
-| **Tenant Admin** | Their tenant | Content management: create/edit questionnaires, view submissions |
+| **Tenant Owner** | Their tenant | Full control: branding, users, questionnaires, publishing, deletion, export, lead management |
+| **Tenant Admin** | Their tenant | Content management: create/edit questionnaires, view submissions, update lead status |
 | **Respondent** | Public | Fill in published questionnaires, verify email |
 
 ### Data Model
@@ -68,18 +138,26 @@ platform_admins ─┐
                                  └──> questionnaires ──> sections ──> questions ──> question_options
 ```
 
+Key fields on `Submission`:
+- `leadStatus` — `open` | `in_progress` | `closed` (default: `open`)
+- `submittedAt` — set when email is verified
+
+Key fields on `QuestionOption`:
+- `isAllowed` — `true` (allowed) | `false` (not allowed) | `null` (no designation)
+
 ### End-to-End Flow
 
 1. **Platform admin** creates a tenant with branding (slug, logo, colors)
 2. **Platform admin** creates the first owner account for the tenant
 3. **Tenant owner** logs into `/reporting`, creates a questionnaire
-4. **Tenant owner** adds sections, questions, and answer options
-5. **Tenant owner** publishes the questionnaire
-6. **Respondent** opens the public URL: `/{tenant_slug}/{questionnaire_slug}`
-7. **Respondent** answers all questions (auto-saved as draft)
-8. **Respondent** enters email → receives verification email
-9. **Respondent** clicks verification link → submission finalized
-10. **Tenant owner** views the submission in the reporting panel
+4. **Tenant owner** adds sections, questions, and answer options (with allowed/not-allowed designations)
+5. **Tenant owner** optionally customizes the email template and notification email
+6. **Tenant owner** publishes the questionnaire
+7. **Respondent** opens the public URL: `/{tenant_slug}/{questionnaire_slug}`
+8. **Respondent** answers all questions (auto-saved as draft, works offline)
+9. **Respondent** enters email → receives verification email → submission finalized
+10. **Tenant owner** views the submission in `/reporting`, manages lead status (open → in behandeling → afgehandeld)
+11. **Tenant owner** exports filtered submissions as CSV
 
 ---
 
@@ -99,10 +177,10 @@ cd gacs
 # 2. Start all services
 docker compose up --build
 
-# 3. Run migrations (first time only)
-docker compose exec api npx prisma migrate dev --name init
+# 3. Push the database schema
+docker compose exec api npx prisma db push
 
-# 4. Seed the database
+# 4. Seed the database (includes GACS checklist with allowed/not-allowed flags)
 docker compose exec api npm run seed
 ```
 
@@ -119,7 +197,9 @@ docker compose exec api npm run seed
 
 ### Test the Questionnaire
 
-Open: http://localhost:3000/croonwolterdros/gacs-compliance-check
+- **Normal flow:** http://localhost:3000/croonwolterdros/gacs-compliance-check
+- **Instant results (skip email):** http://localhost:3000/croonwolterdros/gacs-compliance-check?skipEmailStep=1
+- **Prefilled + instant results:** http://localhost:3000/croonwolterdros/gacs-compliance-check?prefilled=1&skipEmailStep=1
 
 ### Login Credentials (from seed)
 
@@ -136,13 +216,13 @@ When logging into **Reporting**, use tenant slug: `croonwolterdros`
 ## Local Development (without Docker)
 
 ```bash
-# 1. Start PostgreSQL (or use Docker for just the DB)
+# 1. Start PostgreSQL and Mailpit
 docker compose up postgres mailpit -d
 
 # 2. API
 cd api
 npm install
-npx prisma migrate dev --name init
+npx prisma db push
 npm run seed
 npm run start:dev
 
@@ -162,6 +242,25 @@ npm install
 npm run dev
 ```
 
+### Common Docker Commands
+
+```bash
+# Push schema changes to the database
+docker compose exec api npx prisma db push
+
+# Regenerate Prisma client
+docker compose exec api npx prisma generate
+
+# Re-seed the database (idempotent, also syncs allowed/not-allowed flags)
+docker compose exec api npm run seed
+
+# Restart the API container after code changes
+docker compose restart api
+
+# View API logs
+docker compose logs -f api
+```
+
 ---
 
 ## Project Structure
@@ -171,42 +270,37 @@ gacs/
 ├── api/                          # NestJS backend
 │   ├── prisma/
 │   │   ├── schema.prisma         # Database schema
-│   │   └── seed.ts               # GACS checklist seed data
+│   │   └── seed.ts               # GACS checklist seed data + isAllowed flags
 │   ├── src/
-│   │   ├── auth/                 # Authentication (session, passport, guards)
-│   │   ├── common/               # Shared decorators, guards
-│   │   ├── gdpr/                 # GDPR compliance (export, erasure, purge)
-│   │   ├── mail/                 # Email service (nodemailer)
-│   │   ├── platform-admins/      # Platform admin endpoints
-│   │   ├── tenants/              # Tenant CRUD
-│   │   ├── tenant-users/         # Tenant user management
-│   │   ├── questionnaires/       # Questionnaire CRUD + publish lifecycle
-│   │   ├── sections/             # Section CRUD + reorder
-│   │   ├── questions/            # Question CRUD + reorder
-│   │   ├── question-options/     # Option CRUD + reorder
-│   │   ├── submissions/          # Submission lifecycle + answers
-│   │   ├── respondents/          # Email verification flow
-│   │   └── prisma/               # Prisma service (global)
+│   │   ├── app/usecase/          # Application use cases
+│   │   │   ├── submissions/      # Submission lifecycle, lead status, PDF data, export
+│   │   │   ├── respondents/      # Email verification flow
+│   │   │   ├── gdpr/             # GDPR compliance (export, erasure, purge)
+│   │   │   └── ...
+│   │   ├── domain/               # Entities, repository interfaces, ports
+│   │   ├── infrastructure/       # Prisma repositories, mail service
+│   │   ├── ui/controllers/       # REST controllers, guards, decorators
+│   │   └── main.ts
 │   └── Dockerfile
 │
 ├── ui/                           # React respondent app
 │   ├── src/
 │   │   ├── components/ui/        # shadcn/ui components
-│   │   ├── pages/                # QuestionnairePage, VerifyPage, etc.
-│   │   └── lib/                  # API client, utils
+│   │   ├── pages/                # QuestionnairePage, VerifyPage
+│   │   └── lib/                  # API client, PDF generation, offline support
 │   └── Dockerfile
 │
 ├── reporting/                    # React tenant admin panel
 │   ├── src/
 │   │   ├── components/           # UI components + layout
-│   │   ├── pages/                # Dashboard, Questionnaires, Submissions, etc.
+│   │   ├── pages/                # Dashboard, Questionnaires, Submissions, Branding, GDPR
 │   │   └── lib/                  # Auth context, API client
 │   └── Dockerfile
 │
 ├── monitoring/                   # React platform admin panel
 │   ├── src/
 │   │   ├── components/           # UI components + layout
-│   │   ├── pages/                # Dashboard, Tenants CRUD, GDPR, etc.
+│   │   ├── pages/                # Dashboard, Tenants CRUD, GDPR
 │   │   └── lib/                  # Auth context, API client
 │   └── Dockerfile
 │
@@ -233,9 +327,9 @@ gacs/
 
 ### Role Enforcement
 
-- **Monitoring** (`/monitoring`): Only `platform_admin` can log in. The frontend auth context checks the role and redirects unauthorized users.
-- **Reporting** (`/reporting`): Only `tenant_owner` and `tenant_admin` can log in. Login requires the tenant slug.
-- **API**: Role-based guards (`@Roles()` decorator + `RolesGuard`) enforce permissions on every endpoint.
+- **Monitoring** (`/monitoring`): Only `platform_admin` can log in
+- **Reporting** (`/reporting`): Only `tenant_owner` and `tenant_admin` can log in (requires tenant slug)
+- **API**: Role-based guards (`@Roles()` decorator + `RolesGuard`) enforce permissions on every endpoint
 
 ### Permission Matrix
 
@@ -244,14 +338,17 @@ gacs/
 | Create/deactivate tenants | ✓ | | | |
 | Create first owner account | ✓ | | | |
 | Update tenant branding | | ✓ | | |
+| Customize email template | | ✓ | | |
 | Invite/remove tenant admins | | ✓ | | |
 | Create questionnaire | | ✓ | ✓ | |
 | Edit questionnaire content | | ✓ | ✓ | |
+| Set allowed/not-allowed on options | | ✓ | ✓ | |
 | Delete questionnaire | | ✓ | | |
 | Publish/unpublish questionnaire | | ✓ | | |
 | Reorder sections/questions/options | | ✓ | ✓ | |
 | View submissions | | ✓ | ✓ | |
-| Export submission data | | ✓ | | |
+| Update lead status | | ✓ | ✓ | |
+| Export submission data (CSV) | | ✓ | | |
 | Fill in questionnaire | | | | ✓ |
 | Submit email for verification | | | | ✓ |
 
@@ -270,7 +367,7 @@ gacs/
 - `DELETE /api/gdpr/respondents/:id` — Anonymize all respondent data, unlink submissions
 
 ### Data Retention
-- Configurable via `DATA_RETENTION_DAYS` environment variable (default: 365 days)
+- Configurable per tenant via the GDPR settings page in `/reporting`
 - `POST /api/gdpr/purge` — Purge expired verification tokens and anonymize old respondents
 
 ### Cookie Consent
@@ -281,20 +378,6 @@ gacs/
 - Tokens are stored as SHA-256 hashes (raw token never stored)
 - Tokens expire after 24 hours
 - Status lifecycle: `issued` → `consumed` / `expired` / `revoked`
-
----
-
-## Whitelabel
-
-Each tenant has customizable branding:
-- **Name** — displayed in header
-- **Slug** — URL identifier (`/croonwolterdros/gacs-compliance-check`)
-- **Primary Color** — hex color applied via CSS variables
-- **Secondary Color** — hex color for accents
-- **Logo URL** — displayed in questionnaire header
-- **Favicon URL** — browser tab icon
-
-The UI app dynamically applies tenant branding when loading a questionnaire. CSS custom properties are updated at runtime based on the tenant configuration.
 
 ---
 
@@ -309,7 +392,7 @@ The UI app dynamically applies tenant branding when loading a questionnaire. CSS
 - `GET /api/tenants` — List all tenants
 - `POST /api/tenants` — Create tenant
 - `GET /api/tenants/:id` — Get tenant details
-- `PATCH /api/tenants/:id` — Update tenant
+- `PATCH /api/tenants/:id` — Update tenant (branding, email template, notification email)
 - `PATCH /api/tenants/:id/deactivate` — Deactivate tenant
 - `GET /api/tenants/by-slug/:slug` — Public: get tenant by slug
 
@@ -330,12 +413,17 @@ The UI app dynamically applies tenant branding when loading a questionnaire. CSS
 
 ### Sections, Questions, Options
 - CRUD + reorder endpoints for each level
+- `PATCH /api/questions/:questionId/options/:optionId` — Update option (including `isAllowed`)
 
 ### Submissions
 - `POST /api/submissions/start` — Start new submission
 - `POST /api/submissions/:id/answers` — Save answer
 - `GET /api/submissions/:id` — Get submission details
+- `GET /api/submissions/:id/pdf-data` — Get full PDF data
 - `POST /api/submissions/:id/email` — Submit email for verification
+- `PATCH /api/submissions/:id/lead-status` — Update lead status (tenant only)
+- `GET /api/tenants/:tenantId/submissions` — List with filters (email, questionnaire, status, date range)
+- `GET /api/tenants/:tenantId/submissions/export` — CSV export with same filters
 
 ### Email Verification
 - `GET /api/verify-email?token=...&submission=...` — Verify email
@@ -344,6 +432,9 @@ The UI app dynamically applies tenant branding when loading a questionnaire. CSS
 - `GET /api/gdpr/respondents/:id/export` — Export data
 - `DELETE /api/gdpr/respondents/:id` — Delete data
 - `POST /api/gdpr/purge` — Purge expired data
+- `GET /api/tenants/:tenantId/gdpr/retention` — Get retention settings
+- `PUT /api/tenants/:tenantId/gdpr/retention` — Update retention settings
+- `GET /api/tenants/:tenantId/gdpr/audit-log` — View audit log
 
 ---
 
@@ -361,12 +452,13 @@ The UI app dynamically applies tenant branding when loading a questionnaire. CSS
 | `SMTP_PORT` | SMTP server port | `1025` |
 | `SMTP_FROM` | From email address | `noreply@gacs.local` |
 | `DATA_RETENTION_DAYS` | GDPR data retention period | `365` |
+| `VITE_TINYMCE_API_KEY` | TinyMCE API key for email template editor | *(set in .env)* |
 
 ---
 
 ## GACS Checklist (Seed Data)
 
-The seed script loads the complete GACS checklist from `checklist-technische-eisen-gacs-v3.pdf` as questionnaire data:
+The seed script loads the complete GACS checklist from the [RVO checklist-technische-eisen-gacs-v3.pdf](https://www.rvo.nl/sites/default/files/2024-01/checklist-technische-eisen-gacs-v3.pdf) as questionnaire data, with each option pre-classified as **allowed** or **not allowed**:
 
 | Section | Title | Questions |
 |---------|-------|-----------|
@@ -378,12 +470,18 @@ The seed script loads the complete GACS checklist from `checklist-technische-eis
 | 6 | Zonweringssysteem onderdelen | 6.1 |
 | 7 | Technisch gebouwmanagement onderdelen | 7.1 – 7.7 |
 
-Each question has options grouped into **"Niet toegestaan"** (not allowed) and **"Wel toegestaan"** (allowed), following the NEN-EN-ISO 52120 classification.
+Each question has options classified into **"Niet toegestaan"** (not allowed) and **"Wel toegestaan"** (allowed), following the NEN-EN-ISO 52120 standard. Re-running the seed (`npm run seed`) is idempotent and will synchronize `isAllowed` flags on existing options.
 
 ---
 
-### Posible future additions:
-- Extend the authentication to not only support the current session based authentication, but also OIDC. I might be a good idea for us to implement something like Keycloak, create our own identity provider and allow a tenant to connect their own identity provider to their login for the /reporting app.
+## Possible Future Additions
+
+- **OIDC Authentication** — Extend the current session-based authentication to also support OpenID Connect. Consider implementing Keycloak as an identity provider and allowing tenants to connect their own IdP for `/reporting` login.
+- **Internationalization (i18n)** — Multi-language support for questionnaire content and UI chrome.
+- **Webhook Integrations** — Notify external systems (CRM, email marketing) when a submission is completed or lead status changes.
+- **PDF Branding** — Include tenant logo and colors in the generated PDF report.
+
+---
 
 ## License
 
