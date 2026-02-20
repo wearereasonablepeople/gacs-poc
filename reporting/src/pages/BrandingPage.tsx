@@ -191,266 +191,277 @@ export default function BrandingPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Organization Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  if (fieldErrors.name)
-                    setFieldErrors((p) => ({ ...p, name: undefined }));
-                }}
-                placeholder="Your Organization"
-                className={fieldErrors.name ? "border-destructive" : ""}
-              />
-              {fieldErrors.name && (
-                <p className="text-xs text-destructive">{fieldErrors.name}</p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="primaryColor">Primary Color</Label>
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    id="primaryColor"
-                    value={primaryColor}
-                    onChange={(e) => {
-                      setPrimaryColor(e.target.value);
-                      if (fieldErrors.primaryColor)
-                        setFieldErrors((p) => ({
-                          ...p,
-                          primaryColor: undefined,
-                        }));
-                    }}
-                    className="h-10 w-12 cursor-pointer rounded border p-1"
-                  />
+                <div className="space-y-2">
+                  <Label htmlFor="name">Organization Name</Label>
                   <Input
-                    value={primaryColor}
+                    id="name"
+                    value={name}
                     onChange={(e) => {
-                      setPrimaryColor(e.target.value);
-                      if (fieldErrors.primaryColor)
+                      setName(e.target.value);
+                      if (fieldErrors.name)
+                        setFieldErrors((p) => ({ ...p, name: undefined }));
+                    }}
+                    placeholder="Your Organization"
+                    className={fieldErrors.name ? "border-destructive" : ""}
+                  />
+                  {fieldErrors.name && (
+                    <p className="text-xs text-destructive">
+                      {fieldErrors.name}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="primaryColor">Primary Color</Label>
+                    <div className="flex gap-2">
+                      <input
+                        type="color"
+                        id="primaryColor"
+                        value={primaryColor}
+                        onChange={(e) => {
+                          setPrimaryColor(e.target.value);
+                          if (fieldErrors.primaryColor)
+                            setFieldErrors((p) => ({
+                              ...p,
+                              primaryColor: undefined,
+                            }));
+                        }}
+                        className="h-10 w-12 cursor-pointer rounded border p-1"
+                      />
+                      <Input
+                        value={primaryColor}
+                        onChange={(e) => {
+                          setPrimaryColor(e.target.value);
+                          if (fieldErrors.primaryColor)
+                            setFieldErrors((p) => ({
+                              ...p,
+                              primaryColor: undefined,
+                            }));
+                        }}
+                        placeholder="#003366"
+                        className={
+                          fieldErrors.primaryColor ? "border-destructive" : ""
+                        }
+                      />
+                    </div>
+                    {fieldErrors.primaryColor && (
+                      <p className="text-xs text-destructive">
+                        {fieldErrors.primaryColor}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="secondaryColor">Secondary Color</Label>
+                    <div className="flex gap-2">
+                      <input
+                        type="color"
+                        id="secondaryColor"
+                        value={secondaryColor}
+                        onChange={(e) => {
+                          setSecondaryColor(e.target.value);
+                          if (fieldErrors.secondaryColor)
+                            setFieldErrors((p) => ({
+                              ...p,
+                              secondaryColor: undefined,
+                            }));
+                        }}
+                        className="h-10 w-12 cursor-pointer rounded border p-1"
+                      />
+                      <Input
+                        value={secondaryColor}
+                        onChange={(e) => {
+                          setSecondaryColor(e.target.value);
+                          if (fieldErrors.secondaryColor)
+                            setFieldErrors((p) => ({
+                              ...p,
+                              secondaryColor: undefined,
+                            }));
+                        }}
+                        placeholder="#e8f0fe"
+                        className={
+                          fieldErrors.secondaryColor ? "border-destructive" : ""
+                        }
+                      />
+                    </div>
+                    {fieldErrors.secondaryColor && (
+                      <p className="text-xs text-destructive">
+                        {fieldErrors.secondaryColor}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="headerTextColor">Header Text Color</Label>
+                    <div className="flex gap-2">
+                      <input
+                        type="color"
+                        id="headerTextColor"
+                        value={headerTextColor}
+                        onChange={(e) => {
+                          setHeaderTextColor(e.target.value);
+                          if (fieldErrors.headerTextColor)
+                            setFieldErrors((p) => ({
+                              ...p,
+                              headerTextColor: undefined,
+                            }));
+                        }}
+                        className="h-10 w-12 cursor-pointer rounded border p-1"
+                      />
+                      <Input
+                        value={headerTextColor}
+                        onChange={(e) => {
+                          setHeaderTextColor(e.target.value);
+                          if (fieldErrors.headerTextColor)
+                            setFieldErrors((p) => ({
+                              ...p,
+                              headerTextColor: undefined,
+                            }));
+                        }}
+                        placeholder="#ffffff"
+                        className={
+                          fieldErrors.headerTextColor
+                            ? "border-destructive"
+                            : ""
+                        }
+                      />
+                    </div>
+                    {fieldErrors.headerTextColor && (
+                      <p className="text-xs text-destructive">
+                        {fieldErrors.headerTextColor}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="subtextColor">Subtext Color</Label>
+                    <div className="flex gap-2">
+                      <input
+                        type="color"
+                        id="subtextColor"
+                        value={subtextColor}
+                        onChange={(e) => {
+                          setSubtextColor(e.target.value);
+                          if (fieldErrors.subtextColor)
+                            setFieldErrors((p) => ({
+                              ...p,
+                              subtextColor: undefined,
+                            }));
+                        }}
+                        className="h-10 w-12 cursor-pointer rounded border p-1"
+                      />
+                      <Input
+                        value={subtextColor}
+                        onChange={(e) => {
+                          setSubtextColor(e.target.value);
+                          if (fieldErrors.subtextColor)
+                            setFieldErrors((p) => ({
+                              ...p,
+                              subtextColor: undefined,
+                            }));
+                        }}
+                        placeholder="#cccccc"
+                        className={
+                          fieldErrors.subtextColor ? "border-destructive" : ""
+                        }
+                      />
+                    </div>
+                    {fieldErrors.subtextColor && (
+                      <p className="text-xs text-destructive">
+                        {fieldErrors.subtextColor}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="logoUrl">Logo URL</Label>
+                  <Input
+                    id="logoUrl"
+                    value={logoUrl}
+                    onChange={(e) => {
+                      setLogoUrl(e.target.value);
+                      if (fieldErrors.logoUrl)
+                        setFieldErrors((p) => ({ ...p, logoUrl: undefined }));
+                    }}
+                    placeholder="https://example.com/logo.png"
+                    className={fieldErrors.logoUrl ? "border-destructive" : ""}
+                  />
+                  {fieldErrors.logoUrl && (
+                    <p className="text-xs text-destructive">
+                      {fieldErrors.logoUrl}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="faviconUrl">Favicon URL</Label>
+                  <Input
+                    id="faviconUrl"
+                    value={faviconUrl}
+                    onChange={(e) => {
+                      setFaviconUrl(e.target.value);
+                      if (fieldErrors.faviconUrl)
                         setFieldErrors((p) => ({
                           ...p,
-                          primaryColor: undefined,
+                          faviconUrl: undefined,
                         }));
                     }}
-                    placeholder="#003366"
+                    placeholder="https://example.com/favicon.ico"
                     className={
-                      fieldErrors.primaryColor ? "border-destructive" : ""
+                      fieldErrors.faviconUrl ? "border-destructive" : ""
                     }
                   />
+                  {fieldErrors.faviconUrl && (
+                    <p className="text-xs text-destructive">
+                      {fieldErrors.faviconUrl}
+                    </p>
+                  )}
                 </div>
-                {fieldErrors.primaryColor && (
-                  <p className="text-xs text-destructive">
-                    {fieldErrors.primaryColor}
-                  </p>
-                )}
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="secondaryColor">Secondary Color</Label>
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    id="secondaryColor"
-                    value={secondaryColor}
-                    onChange={(e) => {
-                      setSecondaryColor(e.target.value);
-                      if (fieldErrors.secondaryColor)
-                        setFieldErrors((p) => ({
-                          ...p,
-                          secondaryColor: undefined,
-                        }));
-                    }}
-                    className="h-10 w-12 cursor-pointer rounded border p-1"
-                  />
+                <div className="space-y-2">
+                  <Label htmlFor="notificationEmail">
+                    Notification Email for New Submissions
+                  </Label>
                   <Input
-                    value={secondaryColor}
+                    id="notificationEmail"
+                    type="email"
+                    value={notificationEmail}
                     onChange={(e) => {
-                      setSecondaryColor(e.target.value);
-                      if (fieldErrors.secondaryColor)
+                      setNotificationEmail(e.target.value);
+                      if (fieldErrors.notificationEmail)
                         setFieldErrors((p) => ({
                           ...p,
-                          secondaryColor: undefined,
+                          notificationEmail: undefined,
                         }));
                     }}
-                    placeholder="#e8f0fe"
+                    placeholder="tenant@example.com"
                     className={
-                      fieldErrors.secondaryColor ? "border-destructive" : ""
+                      fieldErrors.notificationEmail ? "border-destructive" : ""
                     }
                   />
+                  {fieldErrors.notificationEmail && (
+                    <p className="text-xs text-destructive">
+                      {fieldErrors.notificationEmail}
+                    </p>
+                  )}
                 </div>
-                {fieldErrors.secondaryColor && (
-                  <p className="text-xs text-destructive">
-                    {fieldErrors.secondaryColor}
-                  </p>
-                )}
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="headerTextColor">Header Text Color</Label>
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    id="headerTextColor"
-                    value={headerTextColor}
-                    onChange={(e) => {
-                      setHeaderTextColor(e.target.value);
-                      if (fieldErrors.headerTextColor)
-                        setFieldErrors((p) => ({
-                          ...p,
-                          headerTextColor: undefined,
-                        }));
-                    }}
-                    className="h-10 w-12 cursor-pointer rounded border p-1"
-                  />
-                  <Input
-                    value={headerTextColor}
-                    onChange={(e) => {
-                      setHeaderTextColor(e.target.value);
-                      if (fieldErrors.headerTextColor)
-                        setFieldErrors((p) => ({
-                          ...p,
-                          headerTextColor: undefined,
-                        }));
-                    }}
-                    placeholder="#ffffff"
-                    className={
-                      fieldErrors.headerTextColor ? "border-destructive" : ""
-                    }
-                  />
-                </div>
-                {fieldErrors.headerTextColor && (
-                  <p className="text-xs text-destructive">
-                    {fieldErrors.headerTextColor}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="subtextColor">Subtext Color</Label>
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    id="subtextColor"
-                    value={subtextColor}
-                    onChange={(e) => {
-                      setSubtextColor(e.target.value);
-                      if (fieldErrors.subtextColor)
-                        setFieldErrors((p) => ({
-                          ...p,
-                          subtextColor: undefined,
-                        }));
-                    }}
-                    className="h-10 w-12 cursor-pointer rounded border p-1"
-                  />
-                  <Input
-                    value={subtextColor}
-                    onChange={(e) => {
-                      setSubtextColor(e.target.value);
-                      if (fieldErrors.subtextColor)
-                        setFieldErrors((p) => ({
-                          ...p,
-                          subtextColor: undefined,
-                        }));
-                    }}
-                    placeholder="#cccccc"
-                    className={
-                      fieldErrors.subtextColor ? "border-destructive" : ""
-                    }
-                  />
-                </div>
-                {fieldErrors.subtextColor && (
-                  <p className="text-xs text-destructive">
-                    {fieldErrors.subtextColor}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="logoUrl">Logo URL</Label>
-              <Input
-                id="logoUrl"
-                value={logoUrl}
-                onChange={(e) => {
-                  setLogoUrl(e.target.value);
-                  if (fieldErrors.logoUrl)
-                    setFieldErrors((p) => ({ ...p, logoUrl: undefined }));
-                }}
-                placeholder="https://example.com/logo.png"
-                className={fieldErrors.logoUrl ? "border-destructive" : ""}
-              />
-              {fieldErrors.logoUrl && (
-                <p className="text-xs text-destructive">
-                  {fieldErrors.logoUrl}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="faviconUrl">Favicon URL</Label>
-              <Input
-                id="faviconUrl"
-                value={faviconUrl}
-                onChange={(e) => {
-                  setFaviconUrl(e.target.value);
-                  if (fieldErrors.faviconUrl)
-                    setFieldErrors((p) => ({ ...p, faviconUrl: undefined }));
-                }}
-                placeholder="https://example.com/favicon.ico"
-                className={fieldErrors.faviconUrl ? "border-destructive" : ""}
-              />
-              {fieldErrors.faviconUrl && (
-                <p className="text-xs text-destructive">
-                  {fieldErrors.faviconUrl}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notificationEmail">
-                Notification Email for New Submissions
-              </Label>
-              <Input
-                id="notificationEmail"
-                type="email"
-                value={notificationEmail}
-                onChange={(e) => {
-                  setNotificationEmail(e.target.value);
-                  if (fieldErrors.notificationEmail)
-                    setFieldErrors((p) => ({
-                      ...p,
-                      notificationEmail: undefined,
-                    }));
-                }}
-                placeholder="tenant@example.com"
-                className={fieldErrors.notificationEmail ? "border-destructive" : ""}
-              />
-              {fieldErrors.notificationEmail && (
-                <p className="text-xs text-destructive">
-                  {fieldErrors.notificationEmail}
-                </p>
-              )}
-            </div>
-
-            <Button
-              onClick={submitChanges}
-              disabled={saveMutation.isPending}
-              className="w-full"
-            >
-              <Save className="h-4 w-4" />
-              {saveMutation.isPending
-                ? "Saving..."
-                : saved
-                  ? "Saved!"
-                  : "Save Changes"}
-            </Button>
+                <Button
+                  onClick={submitChanges}
+                  disabled={saveMutation.isPending}
+                  className="w-full"
+                >
+                  <Save className="h-4 w-4" />
+                  {saveMutation.isPending
+                    ? "Saving..."
+                    : saved
+                      ? "Saved!"
+                      : "Save Changes"}
+                </Button>
               </CardContent>
             </Card>
 
@@ -507,8 +518,8 @@ export default function BrandingPage() {
                         className="text-sm"
                         style={{ color: subtextColor || "#666666" }}
                       >
-                        This is how your questionnaire will look with the current
-                        branding settings.
+                        This is how your questionnaire will look with the
+                        current branding settings.
                       </p>
 
                       <Separator />

@@ -142,6 +142,7 @@ async function main() {
               questionId: question.id,
               label: optionData.label,
               groupLabel: optionData.groupLabel || null,
+              isAllowed: resolveIsAllowed(questionData.code, optionData.label),
               displayOrder: optionOrder++,
             },
           });
@@ -153,6 +154,10 @@ async function main() {
   } else {
     console.log('⏭️  GACS checklist already seeded, skipping');
   }
+
+  // Keep existing seeded databases aligned with checklist allowed/not-allowed flags.
+  await syncQuestionOptionAllowedFlags(questionnaire.id);
+  console.log('✅ Question option allowed/not-allowed flags synchronized');
 
   // ─── 7. Sample respondent + submission ────────
   const respondent = await prisma.respondent.upsert({
@@ -207,6 +212,95 @@ interface SectionData {
   title: string;
   displayOrder: number;
   questions: QuestionData[];
+}
+
+const NOT_ALLOWED_LABELS_BY_QUESTION_CODE: Record<string, string[]> = {
+  '1.1': [
+    'Geen automatische temperatuurregeling',
+    'Centrale automatische temperatuurregeling',
+  ],
+  '1.2': ['Geen automatische temperatuurregeling'],
+  '1.3': ['Geen automatische temperatuurregeling'],
+  '1.4': ['Geen automatische regeling'],
+  '1.5': ['Geen automatische regeling'],
+  '1.6': ['Vaste temperatuurinstelling'],
+  '1.7': ['Vaste temperatuurinstelling'],
+  '1.8': ['Aan-uit regeling'],
+  '1.9': ['Vaste volgorde'],
+  '1.10': ['Continubedrijf'],
+  '2.1': ['Automatische aan-uit regeling'],
+  '2.2': ['Automatische aan-uit regeling'],
+  '2.3': ['Handmatige regeling'],
+  '2.4': ['Geen regeling (continubedrijf)'],
+  '3.1': [
+    'Geen automatische temperatuurregeling',
+    'Centrale automatische temperatuurregeling',
+  ],
+  '3.2': ['Geen automatische temperatuurregeling'],
+  '3.3': ['Geen automatische temperatuurregeling'],
+  '3.4': ['Geen automatische regeling'],
+  '3.5': ['Geen automatische regeling'],
+  '3.6': ['Geen interlock'],
+  '3.7': ['Vaste temperatuurinstelling'],
+  '3.8': ['Prioritering alleen op basis van draaiuren'],
+  '3.9': ['Continubedrijf'],
+  '4.1': ['Geen automatische controle'],
+  '4.2': ['Aan-uit-regeling'],
+  '4.3': ['Geen afstemming'],
+  '4.4': ['Vaste verhouding buitenluchtstroom'],
+  '4.5': ['Geen automatische regeling'],
+  '4.6': ['Zonder vorstbescherming'],
+  '4.7': ['Zonder oververhittingsbescherming'],
+  '4.8': ['Geen automatische regeling'],
+  '4.9': ['Geen automatische controle'],
+  '4.10': ['Geen automatische controle'],
+  '5.1': ['Handmatige aan-uit-schakeling'],
+  '5.2': [],
+  '6.1': ['Handmatige bediening', 'Handmatige bediening met motor'],
+  '7.1': ['Handmatige instelling setpoint per ruimte'],
+  '7.2': ['Handmatige instelling'],
+  '7.3': ['Geen centrale detectie van storingen en alarmen'],
+  '7.4': ['Alleen indicatie van gemeten waardes (zoals temperatuur, meterstanden)'],
+  '7.5': [],
+  '7.6': ['Direct hergebruik van restwarmte of verschuiving warmtevraag'],
+  '7.7': [],
+};
+
+function resolveIsAllowed(questionCode: string, optionLabel: string): boolean {
+  const notAllowedLabels = NOT_ALLOWED_LABELS_BY_QUESTION_CODE[questionCode];
+  if (!notAllowedLabels) {
+    throw new Error(`No checklist mapping found for question code "${questionCode}"`);
+  }
+
+  return !notAllowedLabels.includes(optionLabel);
+}
+
+async function syncQuestionOptionAllowedFlags(questionnaireId: string): Promise<void> {
+  const questions = await prisma.question.findMany({
+    where: { section: { questionnaireId } },
+    select: {
+      code: true,
+      options: {
+        select: {
+          id: true,
+          label: true,
+        },
+      },
+    },
+  });
+
+  for (const question of questions) {
+    if (!question.code) continue;
+
+    for (const option of question.options) {
+      await prisma.questionOption.update({
+        where: { id: option.id },
+        data: {
+          isAllowed: resolveIsAllowed(question.code, option.label),
+        },
+      });
+    }
+  }
 }
 
 function getGACSChecklistData(): SectionData[] {

@@ -270,7 +270,7 @@ export function QuestionnairePage() {
     if (questionnaire && !submissionId && (!skipEmailStep || prefilledMode)) {
       startMutation.mutate(questionnaire.id);
     }
-  }, [questionnaire, skipEmailStep, prefilledMode]);
+  }, [questionnaire, submissionId, skipEmailStep, prefilledMode, startMutation]);
 
   // Testing helper: prefill all answers and jump to the last section.
   const [hasPersistedPrefill, setHasPersistedPrefill] = useState(false);
@@ -281,9 +281,10 @@ export function QuestionnairePage() {
     const nextAnswers: Record<string, string> = {};
     for (const section of questionnaire.sections) {
       for (const question of section.questions) {
-        const firstOption = question.options[0];
-        if (firstOption) {
-          nextAnswers[question.id] = firstOption.id;
+        if (question.options.length > 0) {
+          const randomIndex = Math.floor(Math.random() * question.options.length);
+          const randomOption = question.options[randomIndex];
+          nextAnswers[question.id] = randomOption.id;
         }
       }
     }
@@ -516,9 +517,13 @@ export function QuestionnairePage() {
     setAnswers({});
     setSubmissionId(null);
     setHasReplayedAnswers(false);
+    setHasAppliedPrefill(false);
+    setHasPersistedPrefill(false);
     setCurrentSectionIndex(0);
     setShowEmailForm(false);
     setShowInstantResults(false);
+    setIncompleteDialogOpen(false);
+    setEmailSent(false);
     setEmail('');
     setEmailError('');
     setConsentGiven(false);
