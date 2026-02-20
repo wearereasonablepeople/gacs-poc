@@ -7,4 +7,10 @@ export interface IMailService {
     tenantName: string,
     tenantTemplate?: string | null,
   ): Promise<void>;
+  sendTenantNotificationEmail(
+    to: string,
+    tenantName: string,
+    questionnaireTitle: string,
+    respondentEmail: string,
+  ): Promise<void>;
 }

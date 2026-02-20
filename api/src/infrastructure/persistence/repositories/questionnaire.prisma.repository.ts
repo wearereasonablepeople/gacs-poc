@@ -19,6 +19,13 @@ export class PrismaQuestionnaireRepository implements IQuestionnaireRepository {
     return this.prisma.questionnaire.findUnique({
       where: { id },
       include: {
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
         sections: {
           orderBy: { displayOrder: 'asc' },
           include: {

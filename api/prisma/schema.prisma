@@ -58,6 +58,7 @@ model Tenant {
   logoUrl         String?  @map("logo_url")
   faviconUrl      String?  @map("favicon_url")
   verificationEmailTemplate String? @map("verification_email_template")
+  notificationEmail String? @map("notification_email") @db.VarChar(255)
   isActive       Boolean  @default(true) @map("is_active")
   retentionDays  Int      @default(365) @map("retention_days")
   createdById    String   @map("created_by") @db.Uuid

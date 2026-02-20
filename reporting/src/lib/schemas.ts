@@ -89,6 +89,9 @@ export const brandingSchema = z.object({
   faviconUrl: z
     .union([z.string().url("Must be a valid URL"), z.literal("")])
     .optional(),
+  notificationEmail: z
+    .union([z.string().email("Must be a valid email address"), z.literal("")])
+    .optional(),
   verificationEmailTemplate: z
     .string()
     .max(50000, "Template must be 50,000 characters or less")

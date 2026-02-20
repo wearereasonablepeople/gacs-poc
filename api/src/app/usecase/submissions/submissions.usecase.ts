@@ -173,4 +173,110 @@ export class SubmissionsUseCase {
     };
   }
 
+  async getPdfPreviewData(
+    questionnaireId: string,
+    answers: Record<string, string>,
+  ) {
+    const questionnaire = await this.questionnaireRepo.findOne(questionnaireId);
+    if (!questionnaire || !(questionnaire as any).isPublished) {
+      throw new NotFoundException("Questionnaire not found or not published");
+    }
+
+    const sections = ((questionnaire as any).sections ?? []).map((section: any) => ({
+      code: section.code,
+      title: section.title,
+      questions: (section.questions ?? []).map((question: any) => {
+        const selectedOptionId = answers?.[question.id];
+        const selectedOption =
+          question.options?.find((option: any) => option.id === selectedOptionId) ??
+          null;
+        const allowedOptions = (question.options ?? [])
+          .filter((option: any) => option.isAllowed === true)
+          .map((option: any) => option.label);
+
+        return {
+          code: question.code,
+          prompt: question.prompt,
+          selectedOption: selectedOption
+            ? {
+                id: selectedOption.id,
+                label: selectedOption.label,
+                groupLabel: selectedOption.groupLabel ?? null,
+                isAllowed: selectedOption.isAllowed ?? null,
+              }
+            : null,
+          allowedOptions,
+        };
+      }),
+    }));
+
+    let totalScored = 0;
+    let totalGraded = 0;
+
+    const sectionScores = sections.map((section: any) => {
+      let scored = 0;
+      let total = 0;
+      for (const question of section.questions) {
+        if ((question.allowedOptions?.length ?? 0) === 0) continue;
+        total++;
+        if (question.selectedOption?.isAllowed === true) scored++;
+      }
+      const percentage = total > 0 ? Math.round((scored / total) * 100) : 100;
+      totalScored += scored;
+      totalGraded += total;
+      return {
+        title: section.title,
+        code: section.code,
+        scored,
+        total,
+        percentage,
+      };
+    });
+
+    const overallScore =
+      totalGraded > 0 ? Math.round((totalScored / totalGraded) * 100) : 100;
+
+    const notAllowedItems: Array<{
+      sectionTitle: string;
+      sectionCode: string | null;
+      questionCode: string | null;
+      questionPrompt: string;
+      selectedLabel: string;
+      allowedOptions: string[];
+    }> = [];
+
+    for (const section of sections) {
+      for (const question of section.questions) {
+        if (!question.selectedOption || question.selectedOption.isAllowed !== false) {
+          continue;
+        }
+        const selectedLabel = question.selectedOption.groupLabel
+          ? `${question.selectedOption.groupLabel}: ${question.selectedOption.label}`
+          : question.selectedOption.label;
+        notAllowedItems.push({
+          sectionTitle: section.title,
+          sectionCode: section.code,
+          questionCode: question.code,
+          questionPrompt: question.prompt,
+          selectedLabel,
+          allowedOptions: question.allowedOptions ?? [],
+        });
+      }
+    }
+
+    return {
+      questionnaireTitle: (questionnaire as any).title,
+      tenantName:
+        (questionnaire as any).tenant?.name ?? (questionnaire as any).title,
+      sections,
+      results: {
+        overallScore,
+        totalScored,
+        totalGraded,
+        sectionScores,
+        notAllowedItems,
+      },
+    };
+  }
+
 }

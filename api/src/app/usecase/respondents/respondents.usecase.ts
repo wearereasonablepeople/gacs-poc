@@ -76,6 +76,23 @@ export class RespondentsUseCase {
       submission.questionnaire.tenant?.verificationEmailTemplate ?? null,
     );
 
+    const notificationEmail = submission.questionnaire.tenant?.notificationEmail;
+    if (notificationEmail) {
+      try {
+        await this.mailService.sendTenantNotificationEmail(
+          notificationEmail,
+          tenantName,
+          submission.questionnaire.title,
+          email,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to send tenant notification email to ${notificationEmail}`,
+          (error as Error).stack,
+        );
+      }
+    }
+
     this.logger.log(
       `Verification email sent to ${email} for submission ${submissionId}`,
     );

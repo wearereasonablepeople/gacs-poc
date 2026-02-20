@@ -32,6 +32,7 @@ interface TenantBranding {
   subtextColor: string;
   logoUrl: string;
   faviconUrl: string;
+  notificationEmail: string;
   verificationEmailTemplate: string;
 }
 
@@ -68,6 +69,7 @@ export default function BrandingPage() {
   const [subtextColor, setSubtextColor] = useState("#cccccc");
   const [logoUrl, setLogoUrl] = useState("");
   const [faviconUrl, setFaviconUrl] = useState("");
+  const [notificationEmail, setNotificationEmail] = useState("");
   const [verificationEmailTemplate, setVerificationEmailTemplate] = useState(
     DEFAULT_VERIFICATION_EMAIL_TEMPLATE,
   );
@@ -92,6 +94,7 @@ export default function BrandingPage() {
       setSubtextColor(branding.subtextColor || "#cccccc");
       setLogoUrl(branding.logoUrl || "");
       setFaviconUrl(branding.faviconUrl || "");
+      setNotificationEmail(branding.notificationEmail || "");
       setVerificationEmailTemplate(
         branding.verificationEmailTemplate ||
           DEFAULT_VERIFICATION_EMAIL_TEMPLATE,
@@ -109,6 +112,7 @@ export default function BrandingPage() {
         subtextColor: subtextColor || undefined,
         logoUrl,
         faviconUrl,
+        notificationEmail: notificationEmail || undefined,
         verificationEmailTemplate,
       });
     },
@@ -128,6 +132,7 @@ export default function BrandingPage() {
       subtextColor: subtextColor || undefined,
       logoUrl: logoUrl || undefined,
       faviconUrl: faviconUrl || undefined,
+      notificationEmail: notificationEmail || undefined,
       verificationEmailTemplate,
     });
     if (!result.success) {
@@ -404,6 +409,32 @@ export default function BrandingPage() {
               {fieldErrors.faviconUrl && (
                 <p className="text-xs text-destructive">
                   {fieldErrors.faviconUrl}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notificationEmail">
+                Notification Email for New Submissions
+              </Label>
+              <Input
+                id="notificationEmail"
+                type="email"
+                value={notificationEmail}
+                onChange={(e) => {
+                  setNotificationEmail(e.target.value);
+                  if (fieldErrors.notificationEmail)
+                    setFieldErrors((p) => ({
+                      ...p,
+                      notificationEmail: undefined,
+                    }));
+                }}
+                placeholder="tenant@example.com"
+                className={fieldErrors.notificationEmail ? "border-destructive" : ""}
+              />
+              {fieldErrors.notificationEmail && (
+                <p className="text-xs text-destructive">
+                  {fieldErrors.notificationEmail}
                 </p>
               )}
             </div>

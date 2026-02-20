@@ -49,6 +49,14 @@ export class SubmissionsController {
     return this.useCase.getPdfData(id);
   }
 
+  @Post("questionnaires/:questionnaireId/pdf-preview-data")
+  getPdfPreviewData(
+    @Param("questionnaireId") questionnaireId: string,
+    @Body() body: { answers: Record<string, string> },
+  ) {
+    return this.useCase.getPdfPreviewData(questionnaireId, body?.answers ?? {});
+  }
+
   @Get("questionnaires/:questionnaireId/submissions")
   @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles("tenant_owner", "tenant_admin")

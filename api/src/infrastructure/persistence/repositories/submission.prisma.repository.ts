@@ -37,7 +37,12 @@ export class PrismaSubmissionRepository implements ISubmissionRepository {
             title: true,
             slug: true,
             tenant: {
-              select: { id: true, name: true, verificationEmailTemplate: true },
+              select: {
+                id: true,
+                name: true,
+                verificationEmailTemplate: true,
+                notificationEmail: true,
+              },
             },
             sections: { select: { _count: { select: { questions: true } } } },
           },

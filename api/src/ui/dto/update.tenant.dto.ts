@@ -1,4 +1,5 @@
 import {
+  IsEmail,
   IsBoolean,
   IsOptional,
   IsString,
@@ -44,6 +45,10 @@ export class UpdateTenantDto {
   @IsString()
   @MaxLength(50000)
   verificationEmailTemplate?: string;
+
+  @IsOptional()
+  @IsEmail()
+  notificationEmail?: string;
 
   @IsOptional()
   @IsBoolean()

@@ -9,6 +9,7 @@ export interface TenantEntity {
   logoUrl: string | null;
   faviconUrl: string | null;
   verificationEmailTemplate: string | null;
+  notificationEmail: string | null;
   isActive: boolean;
   retentionDays: number;
   createdById: string;

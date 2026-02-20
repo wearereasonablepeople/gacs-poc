@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { emailSubmissionSchema } from '@/lib/schemas';
@@ -32,8 +32,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { ConfettiButton } from '@/components/ui/confetti-button';
 import { ChevronLeft, ChevronRight, Send, Loader2, CheckCircle2, AlertCircle, AlertTriangle, Download, WifiOff, RefreshCw } from 'lucide-react';
-import { generateSubmissionPdf, buildPdfFilename } from '@/lib/pdf';
-import type { PdfData } from '@/lib/pdf';
+import { generateSubmissionPdf, buildPdfFilename, computeScores, getMotivationalMessage } from '@/lib/pdf';
+import type { PdfData, PdfSection } from '@/lib/pdf';
 
 interface Option {
   id: string;
@@ -78,8 +78,36 @@ interface Questionnaire {
   };
 }
 
+interface PreviewResultItem {
+  sectionTitle: string;
+  sectionCode: string | null;
+  questionCode: string | null;
+  questionPrompt: string;
+  selectedLabel: string;
+  allowedOptions: string[];
+}
+
+interface PdfPreviewResponse {
+  questionnaireTitle: string;
+  tenantName: string;
+  results: {
+    overallScore: number;
+    totalScored: number;
+    totalGraded: number;
+    sectionScores: Array<{
+      title: string;
+      code: string | null;
+      scored: number;
+      total: number;
+      percentage: number;
+    }>;
+    notAllowedItems: PreviewResultItem[];
+  };
+}
+
 export function QuestionnairePage() {
   const { tenantSlug, questionnaireSlug } = useParams<{ tenantSlug: string; questionnaireSlug: string }>();
+  const [searchParams] = useSearchParams();
 
   // localStorage key scoped to this specific questionnaire
   const storageKey = `gacs-draft:${tenantSlug}/${questionnaireSlug}`;
@@ -107,6 +135,7 @@ export function QuestionnairePage() {
   const [emailError, setEmailError] = useState('');
   const [consentGiven, setConsentGiven] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
+  const [showInstantResults, setShowInstantResults] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [incompleteDialogOpen, setIncompleteDialogOpen] = useState(false);
 
@@ -129,6 +158,17 @@ export function QuestionnairePage() {
   const [online, setOnline] = useState(isOnline());
   const [pendingOps, setPendingOps] = useState(getQueueLength());
   const [syncing, setSyncing] = useState(false);
+  const [hasAppliedPrefill, setHasAppliedPrefill] = useState(false);
+
+  const skipEmailStep = useMemo(() => {
+    const value = (searchParams.get('skipEmailStep') || '').toLowerCase();
+    return value === '1' || value === 'true' || value === 'yes';
+  }, [searchParams]);
+
+  const prefilledMode = useMemo(() => {
+    const value = (searchParams.get('prefilled') || '').toLowerCase();
+    return value === '1' || value === 'true' || value === 'yes';
+  }, [searchParams]);
 
   useEffect(() => {
     return onConnectivityChange((status) => {
@@ -227,14 +267,55 @@ export function QuestionnairePage() {
   });
 
   useEffect(() => {
-    if (questionnaire && !submissionId) {
+    if (questionnaire && !submissionId && (!skipEmailStep || prefilledMode)) {
       startMutation.mutate(questionnaire.id);
     }
-  }, [questionnaire]);
+  }, [questionnaire, skipEmailStep, prefilledMode]);
+
+  // Testing helper: prefill all answers and jump to the last section.
+  const [hasPersistedPrefill, setHasPersistedPrefill] = useState(false);
+
+  useEffect(() => {
+    if (!questionnaire || !prefilledMode || hasAppliedPrefill) return;
+
+    const nextAnswers: Record<string, string> = {};
+    for (const section of questionnaire.sections) {
+      for (const question of section.questions) {
+        const firstOption = question.options[0];
+        if (firstOption) {
+          nextAnswers[question.id] = firstOption.id;
+        }
+      }
+    }
+
+    setAnswers(nextAnswers);
+    setCurrentSectionIndex(Math.max(0, questionnaire.sections.length - 1));
+    setHasAppliedPrefill(true);
+  }, [questionnaire, prefilledMode, hasAppliedPrefill]);
+
+  // Persist prefilled answers to the database once submission is available
+  useEffect(() => {
+    if (!prefilledMode || !hasAppliedPrefill || hasPersistedPrefill) return;
+    if (!submissionId || submissionId.startsWith('local-')) return;
+
+    const entries = Object.entries(answers);
+    if (entries.length === 0) return;
+
+    setHasPersistedPrefill(true);
+
+    (async () => {
+      for (const [questionId, selectedOptionId] of entries) {
+        try {
+          await api.post(`/submissions/${submissionId}/answers`, { questionId, selectedOptionId });
+        } catch { /* best-effort — individual failures are non-critical */ }
+      }
+    })();
+  }, [prefilledMode, hasAppliedPrefill, hasPersistedPrefill, submissionId, answers]);
 
   // Save answer (with offline queue fallback)
   const saveAnswerMutation = useMutation({
     mutationFn: async ({ questionId, selectedOptionId }: { questionId: string; selectedOptionId: string }) => {
+      if (skipEmailStep) return;
       if (!submissionId) return;
       // Don't try API for local submissions – queue directly
       if (submissionId.startsWith('local-')) {
@@ -243,6 +324,7 @@ export function QuestionnairePage() {
       await api.post(`/submissions/${submissionId}/answers`, { questionId, selectedOptionId });
     },
     onError: (_err, variables) => {
+      if (skipEmailStep) return;
       // Queue for later sync
       if (submissionId) {
         enqueue({
@@ -287,10 +369,12 @@ export function QuestionnairePage() {
     (questionId: string, optionId: string) => {
       // Always save locally first (localStorage persisted via the useEffect above)
       setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
-      // Then attempt API save (will queue on failure)
-      saveAnswerMutation.mutate({ questionId, selectedOptionId: optionId });
+      // Then attempt API save (will queue on failure), unless skipEmailStep mode is active.
+      if (!skipEmailStep) {
+        saveAnswerMutation.mutate({ questionId, selectedOptionId: optionId });
+      }
     },
-    [submissionId],
+    [skipEmailStep, saveAnswerMutation],
   );
 
   // Submit email (handles stale / already-finalized submissions automatically)
@@ -407,11 +491,39 @@ export function QuestionnairePage() {
 
   const handleFinish = useCallback(() => {
     if (allAnswered) {
-      setShowEmailForm(true);
+      if (skipEmailStep) {
+        setShowInstantResults(true);
+      } else {
+        setShowEmailForm(true);
+      }
     } else {
       setIncompleteDialogOpen(true);
     }
-  }, [allAnswered]);
+  }, [allAnswered, skipEmailStep]);
+
+  const { data: previewData, isFetching: isLoadingPreview } = useQuery<PdfPreviewResponse>({
+    queryKey: ['pdf-preview-data', questionnaire?.id, answers],
+    queryFn: async () => {
+      const { data } = await api.post(`/questionnaires/${questionnaire!.id}/pdf-preview-data`, {
+        answers,
+      });
+      return data;
+    },
+    enabled: skipEmailStep && showInstantResults && !!questionnaire?.id,
+  });
+
+  const handleRestartQuestionnaire = useCallback(() => {
+    setAnswers({});
+    setSubmissionId(null);
+    setHasReplayedAnswers(false);
+    setCurrentSectionIndex(0);
+    setShowEmailForm(false);
+    setShowInstantResults(false);
+    setEmail('');
+    setEmailError('');
+    setConsentGiven(false);
+    clearDraft();
+  }, [clearDraft]);
 
   // Compute page background from branding
   const pageBackground: React.CSSProperties = questionnaire?.tenant?.secondaryColor
@@ -493,6 +605,132 @@ export function QuestionnairePage() {
             </CardDescription>
           </CardHeader>
         </Card>
+      </div>
+    );
+  }
+
+  if (showInstantResults && questionnaire) {
+    const pdfSections: PdfSection[] = questionnaire.sections.map((section) => ({
+      code: section.code,
+      title: section.title,
+      questions: section.questions.map((q) => {
+        const selectedOpt = q.options.find((o) => o.id === answers[q.id]);
+        return {
+          code: q.code,
+          prompt: q.prompt,
+          selectedOption: selectedOpt
+            ? { label: selectedOpt.label, groupLabel: selectedOpt.groupLabel, isAllowed: selectedOpt.isAllowed ?? null }
+            : null,
+          allowedOptions: q.options.filter((o) => o.isAllowed === true).map((o) => o.label),
+        };
+      }),
+    }));
+    const { overall: overallScore, sectionScores } = computeScores(pdfSections);
+    const motivationalMsg = getMotivationalMessage(overallScore, questionnaire.tenant.name);
+    const scoreColorClass = overallScore >= 80 ? 'text-green-600' : overallScore >= 50 ? 'text-amber-600' : 'text-red-600';
+    const scoreBgClass = overallScore >= 80 ? 'bg-green-50 border-green-200 text-green-800' : overallScore >= 50 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-200 text-red-800';
+
+    return (
+      <div className="min-h-screen bg-muted/50" style={pageBackground}>
+        <Header tenant={questionnaire.tenant} />
+        <div className="mx-auto max-w-5xl p-4 pt-8 space-y-6">
+          {/* Score overview */}
+          <Card className="max-w-3xl mx-auto">
+            <CardHeader className="text-center pb-2">
+              <p className={`text-5xl font-bold ${scoreColorClass}`}>{overallScore}%</p>
+              <CardTitle className="text-lg">Compliance Score</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className={`rounded-md border p-3 text-sm ${scoreBgClass}`}>
+                {motivationalMsg}
+              </div>
+
+              {/* Section scores */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Score per sectie</h4>
+                {sectionScores.map((sec) => {
+                  const barColor = sec.percentage >= 80 ? 'bg-green-500' : sec.percentage >= 50 ? 'bg-amber-500' : 'bg-red-500';
+                  const label = sec.code ? `${sec.code}. ${sec.title}` : sec.title;
+                  return (
+                    <div key={label} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground truncate mr-2">{label}</span>
+                        <span className="font-semibold shrink-0">{sec.percentage}%</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${sec.percentage}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action items */}
+          <Card className="max-w-3xl mx-auto">
+            <CardHeader>
+              <CardTitle>Actiepunten - Niet-toegestane antwoorden</CardTitle>
+              <CardDescription>
+                De volgende antwoorden zijn niet toegestaan en moeten worden aangepast.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isLoadingPreview ? (
+                <div className="rounded-md border p-4 text-muted-foreground">
+                  Resultaten laden...
+                </div>
+              ) : (previewData?.results.notAllowedItems.length ?? 0) === 0 ? (
+                <div className="rounded-md border border-green-200 bg-green-50 p-4 text-green-800">
+                  Geen directe verbeterpunten gevonden op basis van de huidige antwoorden.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Verbeterpunten gevonden: <strong>{previewData?.results.notAllowedItems.length ?? 0}</strong>
+                  </p>
+                  {previewData?.results.notAllowedItems.map((item, index) => (
+                    <div key={`${item.sectionTitle}-${index}`} className="rounded-md border p-3">
+                      <p className="text-sm font-semibold">
+                        {item.questionCode
+                          ? `${index + 1}. ${item.questionCode} - ${item.questionPrompt}`
+                          : `${index + 1}. ${item.questionPrompt}`}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Sectie: {item.sectionCode ? `${item.sectionCode}. ` : ""}
+                        {item.sectionTitle}
+                      </p>
+                      <p className="text-xs mt-2 text-red-700">
+                        Huidig antwoord: {item.selectedLabel}
+                      </p>
+                      {item.allowedOptions.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs font-medium text-green-700">
+                            Toegestane alternatieven:
+                          </p>
+                          <ul className="mt-1 list-disc pl-5 text-xs text-green-700">
+                            {item.allowedOptions.map((option) => (
+                              <li key={option}>{option}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={handleDownloadPdf} className="flex-1">
+                  <Download className="h-4 w-4" /> Download PDF
+                </Button>
+                <Button onClick={handleRestartQuestionnaire} className="flex-1">
+                  Restart
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -582,7 +820,7 @@ export function QuestionnairePage() {
       <Header tenant={questionnaire.tenant} />
 
       {/* Offline / sync banner */}
-      {(!online || isOfflineMode || pendingOps > 0) && (
+      {!skipEmailStep && (!online || isOfflineMode || pendingOps > 0) && (
         <div className={`px-4 py-2 text-sm flex items-center justify-center gap-2 ${online ? 'bg-amber-50 text-amber-800' : 'bg-gray-100 text-gray-700'}`}>
           {!online ? (
             <>
@@ -659,7 +897,14 @@ export function QuestionnairePage() {
       <div className="mx-auto max-w-5xl p-4 pt-8 space-y-6">
         {/* Title */}
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold">{questionnaire.title}</h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-bold">{questionnaire.title}</h1>
+            {skipEmailStep && (
+              <Badge variant="secondary" className="text-xs">
+                Direct result mode
+              </Badge>
+            )}
+          </div>
           {questionnaire.description && (
             <p className="text-muted-foreground" style={questionnaire.tenant.subtextColor ? { color: questionnaire.tenant.subtextColor } : undefined}>{questionnaire.description}</p>
           )}
@@ -721,7 +966,7 @@ export function QuestionnairePage() {
             {allAnswered ? (
               <ConfettiButton onClick={handleFinish}>
                 <Send className="h-4 w-4" />
-                Afronden
+                {skipEmailStep ? 'Bekijk resultaat' : 'Afronden'}
               </ConfettiButton>
             ) : (
               <Button onClick={() => setIncompleteDialogOpen(true)}>
