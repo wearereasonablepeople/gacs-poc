@@ -68,6 +68,8 @@ export class RespondentsUseCase {
 
     const uiUrl = process.env.UI_URL || "http://localhost:3000";
     const verificationUrl = `${uiUrl}/verify?token=${rawToken}&submission=${submissionId}`;
+    const reportingUrl = process.env.REPORTING_URL || "http://localhost:3001";
+    const submissionUrl = `${reportingUrl}/submissions?submissionId=${encodeURIComponent(submissionId)}`;
 
     await this.mailService.sendVerificationEmail(
       email,
@@ -84,6 +86,7 @@ export class RespondentsUseCase {
           tenantName,
           submission.questionnaire.title,
           email,
+          submissionUrl,
         );
       } catch (error) {
         this.logger.error(

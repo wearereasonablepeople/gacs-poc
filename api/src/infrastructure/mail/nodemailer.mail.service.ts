@@ -64,6 +64,7 @@ export class NodemailerMailService implements IMailService {
     tenantName: string,
     questionnaireTitle: string,
     respondentEmail: string,
+    submissionUrl: string,
   ): Promise<void> {
     const from = process.env.SMTP_FROM || "noreply@gacs.local";
 
@@ -77,8 +78,14 @@ export class NodemailerMailService implements IMailService {
           <p>Er is een nieuwe vragenlijstinzending voor <strong>${this.escapeHtml(tenantName)}</strong>.</p>
           <p><strong>Vragenlijst:</strong> ${this.escapeHtml(questionnaireTitle)}</p>
           <p><strong>Respondent e-mail:</strong> ${this.escapeHtml(respondentEmail)}</p>
+          <p style="margin: 20px 0;">
+            <a href="${this.escapeHtml(submissionUrl)}"
+               style="background-color: #003366; color: #ffffff; padding: 10px 16px; text-decoration: none; border-radius: 4px; display: inline-block;">
+              Open inzending in Reporting
+            </a>
+          </p>
           <p style="color: #666; font-size: 14px;">
-            Je kunt de details bekijken in het Reporting dashboard onder Submissions.
+            De link opent direct de bijbehorende inzending in het Submission-detailvenster.
           </p>
         </div>
       `,

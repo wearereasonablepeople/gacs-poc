@@ -1012,7 +1012,7 @@ export function QuestionnairePage() {
       <Header tenant={questionnaire.tenant} />
 
       {/* Offline / sync banner */}
-      {!skipEmailStep && (!online || isOfflineMode || pendingOps > 0) && (
+      {!skipEmailStep && (!online || isOfflineMode) && (
         <div
           className={`px-4 py-2 text-sm flex items-center justify-center gap-2 ${online ? "bg-amber-50 text-amber-800" : "bg-gray-100 text-gray-700"}`}
         >
@@ -1022,26 +1022,10 @@ export function QuestionnairePage() {
               <span>
                 U bent offline. Uw antwoorden worden lokaal opgeslagen en
                 gesynchroniseerd wanneer u weer online bent.
+                {pendingOps > 0
+                  ? ` (${pendingOps} wijziging(en) in wachtrij)`
+                  : ""}
               </span>
-            </>
-          ) : pendingOps > 0 ? (
-            <>
-              <RefreshCw
-                className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`}
-              />
-              <span>
-                {syncing
-                  ? "Synchroniseren..."
-                  : `${pendingOps} wijziging(en) wachten op synchronisatie.`}
-              </span>
-              {!syncing && (
-                <button
-                  onClick={syncQueue}
-                  className="underline font-medium ml-1"
-                >
-                  Nu synchroniseren
-                </button>
-              )}
             </>
           ) : isOfflineMode ? (
             <>

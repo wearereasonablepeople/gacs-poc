@@ -31,6 +31,7 @@ import { useAuth } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 // Matches the actual API response from findByTenant
 interface SubmissionSummary {
@@ -106,6 +107,7 @@ function downloadBlobFile(blob: Blob, filename: string) {
 export default function SubmissionsPage() {
   const { user, isOwner } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedSubmission, setSelectedSubmission] = useState<string | null>(
     null,
   );
@@ -118,6 +120,13 @@ export default function SubmissionsPage() {
     createdTo: "",
   });
   const debouncedFilters = useDebouncedValue(filters, 350);
+  const submissionIdFromQuery = searchParams.get("submissionId");
+
+  useEffect(() => {
+    if (!submissionIdFromQuery) return;
+    setSelectedSubmission(submissionIdFromQuery);
+    setDetailOpen(true);
+  }, [submissionIdFromQuery]);
 
   const {
     data: submissions,
@@ -181,6 +190,18 @@ export default function SubmissionsPage() {
   function openDetail(id: string) {
     setSelectedSubmission(id);
     setDetailOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.set("submissionId", id);
+    setSearchParams(next, { replace: true });
+  }
+
+  function handleDetailOpenChange(open: boolean) {
+    setDetailOpen(open);
+    if (!open) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("submissionId");
+      setSearchParams(next, { replace: true });
+    }
   }
 
   const visibleSubmissions = submissions ?? [];
@@ -391,7 +412,7 @@ export default function SubmissionsPage() {
       )}
 
       {/* Submission detail dialog */}
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+      <Dialog open={detailOpen} onOpenChange={handleDetailOpenChange}>
         <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

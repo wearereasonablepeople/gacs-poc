@@ -12,5 +12,6 @@ export interface IMailService {
     tenantName: string,
     questionnaireTitle: string,
     respondentEmail: string,
+    submissionUrl: string,
   ): Promise<void>;
 }
