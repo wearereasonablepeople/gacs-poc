@@ -17,13 +17,13 @@ export class QuestionsController {
   @Post()
   create(
     @Param('sectionId') sectionId: string,
-    @Body() body: { code?: string; prompt: string; helpText?: string; isRequired?: boolean },
+    @Body() body: { code?: string; prompt: string; helpText?: string; imageUrl?: string; imageScale?: number; isRequired?: boolean },
   ) {
     return this.useCase.create(sectionId, body);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: { code?: string; prompt?: string; helpText?: string; isRequired?: boolean }) {
+  update(@Param('id') id: string, @Body() body: { code?: string; prompt?: string; helpText?: string; imageUrl?: string; imageScale?: number; isRequired?: boolean }) {
     return this.useCase.update(id, body);
   }
 

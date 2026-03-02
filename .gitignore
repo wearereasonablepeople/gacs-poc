@@ -20,5 +20,8 @@ Thumbs.db
 # Prisma
 api/prisma/migrations/**/migration_lock.toml
 
+# Uploads
+api/uploads/
+
 # Docker
 pgdata/

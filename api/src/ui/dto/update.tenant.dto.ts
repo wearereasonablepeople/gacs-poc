@@ -35,6 +35,61 @@ export class UpdateTenantDto {
 
   @IsOptional()
   @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
+  startButtonColor?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
+  previousButtonColor?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
+  nextQuestionButtonColor?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
+  prevQuestionButtonColor?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
+  stepNavBgColor?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
+  stepNavTextColor?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
+  progressBarBgColor?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
+  progressBarColor?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
+  progressBarTextColor?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
+  questionContainerBgColor?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: "Must be a valid hex color" })
+  activeChapterIndicatorColor?: string;
+
+  @IsOptional()
+  @IsString()
   logoUrl?: string;
 
   @IsOptional()

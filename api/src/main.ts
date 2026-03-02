@@ -13,15 +13,32 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Security headers
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      contentSecurityPolicy: {
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          'img-src': ["'self'", 'data:', 'blob:', '*'],
+        },
+      },
+    }),
+  );
 
-  // CORS – allow all three frontends
+  // CORS – allow all three frontends + extra origins (e.g. ngrok tunnels)
+  const corsOrigins: (string | RegExp)[] = [
+    process.env.UI_URL || 'http://localhost:3000',
+    process.env.REPORTING_URL || 'http://localhost:3001',
+    process.env.MONITORING_URL || 'http://localhost:3002',
+  ];
+  if (process.env.EXTRA_CORS_ORIGINS) {
+    corsOrigins.push(...process.env.EXTRA_CORS_ORIGINS.split(',').map((o) => o.trim()));
+  }
+  if (process.env.ALLOW_NGROK === 'true') {
+    corsOrigins.push(/\.ngrok(-free)?\.app$/);
+  }
   app.enableCors({
-    origin: [
-      process.env.UI_URL || 'http://localhost:3000',
-      process.env.REPORTING_URL || 'http://localhost:3001',
-      process.env.MONITORING_URL || 'http://localhost:3002',
-    ],
+    origin: corsOrigins,
     credentials: true,
   });
 

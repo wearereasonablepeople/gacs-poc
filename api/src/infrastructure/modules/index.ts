@@ -12,3 +12,4 @@ export { QuestionOptionsFeatureModule } from './questionoptions.module';
 export { SubmissionsFeatureModule } from './submissions.module';
 export { RespondentsFeatureModule } from './respondents.module';
 export { GdprFeatureModule } from './gdpr.module';
+export { UploadsFeatureModule } from './uploads.module';

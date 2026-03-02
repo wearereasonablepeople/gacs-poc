@@ -182,9 +182,11 @@ export class PrismaSubmissionRepository implements ISubmissionRepository {
             }
           : {}),
       },
-      ...(filters?.hasRespondent !== false
+      ...(filters?.hasRespondent === true
         ? { respondentId: { not: null } }
-        : {}),
+        : filters?.hasRespondent === false
+          ? { respondentId: null }
+          : {}),
       ...(filters?.email
         ? {
             respondent: {

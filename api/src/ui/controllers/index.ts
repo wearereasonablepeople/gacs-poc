@@ -10,3 +10,4 @@ export { QuestionOptionsController } from './questionoptions.controller';
 export { SubmissionsController } from './submissions.controller';
 export { RespondentsController } from './respondents.controller';
 export { GdprController } from './gdpr.controller';
+export { UploadsController } from './uploads.controller';

@@ -7,6 +7,15 @@ export interface QuestionnaireEntity {
   slug: string;
   title: string;
   description: string | null;
+  introTitle: string | null;
+  introDescription: string | null;
+  introImageUrl: string | null;
+  introImageScale: number | null;
+  estimatedMinutes: number | null;
+  completionTitle: string | null;
+  completionDescription: string | null;
+  completionImageUrl: string | null;
+  showConfetti: boolean;
   isPublished: boolean;
   publishedAt: Date | null;
   createdById: string;

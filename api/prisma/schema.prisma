@@ -55,6 +55,17 @@ model Tenant {
   secondaryColor  String?  @map("secondary_color") @db.VarChar(7)
   headerTextColor String?  @map("header_text_color") @db.VarChar(7)
   subtextColor    String?  @map("subtext_color") @db.VarChar(7)
+  startButtonColor    String?  @map("start_button_color") @db.VarChar(7)
+  previousButtonColor String?  @map("previous_button_color") @db.VarChar(7)
+  nextQuestionButtonColor  String?  @map("next_question_button_color") @db.VarChar(7)
+  prevQuestionButtonColor  String?  @map("prev_question_button_color") @db.VarChar(7)
+  stepNavBgColor      String?  @map("step_nav_bg_color") @db.VarChar(7)
+  stepNavTextColor    String?  @map("step_nav_text_color") @db.VarChar(7)
+  progressBarBgColor  String?  @map("progress_bar_bg_color") @db.VarChar(7)
+  progressBarColor    String?  @map("progress_bar_color") @db.VarChar(7)
+  progressBarTextColor String? @map("progress_bar_text_color") @db.VarChar(7)
+  questionContainerBgColor String? @map("question_container_bg_color") @db.VarChar(7)
+  activeChapterIndicatorColor String? @map("active_chapter_indicator_color") @db.VarChar(7)
   logoUrl         String?  @map("logo_url")
   faviconUrl      String?  @map("favicon_url")
   verificationEmailTemplate String? @map("verification_email_template")
@@ -102,16 +113,25 @@ model TenantUser {
 // ──────────────────────────────────────────────
 
 model Questionnaire {
-  id          String    @id @default(uuid()) @db.Uuid
-  tenantId    String    @map("tenant_id") @db.Uuid
-  slug        String    @db.VarChar(120)
-  title       String    @db.VarChar(255)
-  description String?
-  isPublished Boolean   @default(false) @map("is_published")
-  publishedAt DateTime? @map("published_at")
-  createdById String    @map("created_by") @db.Uuid
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id               String    @id @default(uuid()) @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  slug             String    @db.VarChar(120)
+  title            String    @db.VarChar(255)
+  description      String?
+  introTitle       String?   @map("intro_title") @db.VarChar(255)
+  introDescription String?   @map("intro_description")
+  introImageUrl    String?   @map("intro_image_url")
+  introImageScale  Int?      @map("intro_image_scale")
+  estimatedMinutes Int?      @map("estimated_minutes")
+  completionTitle       String?   @map("completion_title") @db.VarChar(255)
+  completionDescription String?   @map("completion_description")
+  completionImageUrl    String?   @map("completion_image_url")
+  showConfetti          Boolean   @default(false) @map("show_confetti")
+  isPublished      Boolean   @default(false) @map("is_published")
+  publishedAt      DateTime? @map("published_at")
+  createdById      String    @map("created_by") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdBy   TenantUser   @relation(fields: [createdById], references: [id])
@@ -123,12 +143,15 @@ model Questionnaire {
 }
 
 model Section {
-  id              String @id @default(uuid()) @db.Uuid
-  questionnaireId String @map("questionnaire_id") @db.Uuid
-  code            String? @db.VarChar(20)
-  title           String @db.VarChar(255)
+  id              String   @id @default(uuid()) @db.Uuid
+  questionnaireId String   @map("questionnaire_id") @db.Uuid
+  code            String?  @db.VarChar(20)
+  title           String   @db.VarChar(255)
   description     String?
-  displayOrder    Int    @default(0) @map("display_order")
+  icon            String?  @db.VarChar(50)
+  imageUrl        String?  @map("image_url")
+  imageScale      Int?     @map("image_scale")
+  displayOrder    Int      @default(0) @map("display_order")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -139,13 +162,15 @@ model Section {
 }
 
 model Question {
-  id           String  @id @default(uuid()) @db.Uuid
-  sectionId    String  @map("section_id") @db.Uuid
-  code         String? @db.VarChar(40)
+  id           String   @id @default(uuid()) @db.Uuid
+  sectionId    String   @map("section_id") @db.Uuid
+  code         String?  @db.VarChar(40)
   prompt       String
-  helpText     String? @map("help_text")
-  isRequired   Boolean @default(true) @map("is_required")
-  displayOrder Int     @default(0) @map("display_order")
+  helpText     String?  @map("help_text")
+  imageUrl     String?  @map("image_url")
+  imageScale   Int?     @map("image_scale")
+  isRequired   Boolean  @default(true) @map("is_required")
+  displayOrder Int      @default(0) @map("display_order")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

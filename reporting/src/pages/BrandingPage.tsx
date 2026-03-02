@@ -23,6 +23,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Editor } from "@tinymce/tinymce-react";
 import { Eye, Palette, Save } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { ImageUpload } from "@/components/ImageUpload";
 
 interface TenantBranding {
   name: string;
@@ -30,6 +31,17 @@ interface TenantBranding {
   secondaryColor: string;
   headerTextColor: string;
   subtextColor: string;
+  startButtonColor: string;
+  previousButtonColor: string;
+  nextQuestionButtonColor: string;
+  prevQuestionButtonColor: string;
+  stepNavBgColor: string;
+  stepNavTextColor: string;
+  progressBarBgColor: string;
+  progressBarColor: string;
+  progressBarTextColor: string;
+  questionContainerBgColor: string;
+  activeChapterIndicatorColor: string;
   logoUrl: string;
   faviconUrl: string;
   notificationEmail: string;
@@ -67,6 +79,17 @@ export default function BrandingPage() {
   const [secondaryColor, setSecondaryColor] = useState("#e8f0fe");
   const [headerTextColor, setHeaderTextColor] = useState("#ffffff");
   const [subtextColor, setSubtextColor] = useState("#cccccc");
+  const [startButtonColor, setStartButtonColor] = useState("");
+  const [previousButtonColor, setPreviousButtonColor] = useState("");
+  const [nextQuestionButtonColor, setNextQuestionButtonColor] = useState("");
+  const [prevQuestionButtonColor, setPrevQuestionButtonColor] = useState("");
+  const [stepNavBgColor, setStepNavBgColor] = useState("");
+  const [stepNavTextColor, setStepNavTextColor] = useState("");
+  const [progressBarBgColor, setProgressBarBgColor] = useState("");
+  const [progressBarColor, setProgressBarColor] = useState("");
+  const [progressBarTextColor, setProgressBarTextColor] = useState("");
+  const [questionContainerBgColor, setQuestionContainerBgColor] = useState("");
+  const [activeChapterIndicatorColor, setActiveChapterIndicatorColor] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [faviconUrl, setFaviconUrl] = useState("");
   const [notificationEmail, setNotificationEmail] = useState("");
@@ -92,6 +115,17 @@ export default function BrandingPage() {
       setSecondaryColor(branding.secondaryColor || "#e8f0fe");
       setHeaderTextColor(branding.headerTextColor || "#ffffff");
       setSubtextColor(branding.subtextColor || "#cccccc");
+      setStartButtonColor(branding.startButtonColor || "");
+      setPreviousButtonColor(branding.previousButtonColor || "");
+      setNextQuestionButtonColor(branding.nextQuestionButtonColor || "");
+      setPrevQuestionButtonColor(branding.prevQuestionButtonColor || "");
+      setStepNavBgColor(branding.stepNavBgColor || "");
+      setStepNavTextColor(branding.stepNavTextColor || "");
+      setProgressBarBgColor(branding.progressBarBgColor || "");
+      setProgressBarColor(branding.progressBarColor || "");
+      setProgressBarTextColor(branding.progressBarTextColor || "");
+      setQuestionContainerBgColor(branding.questionContainerBgColor || "");
+      setActiveChapterIndicatorColor(branding.activeChapterIndicatorColor || "");
       setLogoUrl(branding.logoUrl || "");
       setFaviconUrl(branding.faviconUrl || "");
       setNotificationEmail(branding.notificationEmail || "");
@@ -110,6 +144,17 @@ export default function BrandingPage() {
         secondaryColor,
         headerTextColor: headerTextColor || undefined,
         subtextColor: subtextColor || undefined,
+        startButtonColor: startButtonColor || undefined,
+        previousButtonColor: previousButtonColor || undefined,
+        nextQuestionButtonColor: nextQuestionButtonColor || undefined,
+        prevQuestionButtonColor: prevQuestionButtonColor || undefined,
+        stepNavBgColor: stepNavBgColor || undefined,
+        stepNavTextColor: stepNavTextColor || undefined,
+        progressBarBgColor: progressBarBgColor || undefined,
+        progressBarColor: progressBarColor || undefined,
+        progressBarTextColor: progressBarTextColor || undefined,
+        questionContainerBgColor: questionContainerBgColor || undefined,
+        activeChapterIndicatorColor: activeChapterIndicatorColor || undefined,
         logoUrl,
         faviconUrl,
         notificationEmail: notificationEmail || undefined,
@@ -130,6 +175,17 @@ export default function BrandingPage() {
       secondaryColor,
       headerTextColor: headerTextColor || undefined,
       subtextColor: subtextColor || undefined,
+      startButtonColor: startButtonColor || undefined,
+      previousButtonColor: previousButtonColor || undefined,
+      nextQuestionButtonColor: nextQuestionButtonColor || undefined,
+      prevQuestionButtonColor: prevQuestionButtonColor || undefined,
+      stepNavBgColor: stepNavBgColor || undefined,
+      stepNavTextColor: stepNavTextColor || undefined,
+      progressBarBgColor: progressBarBgColor || undefined,
+      progressBarColor: progressBarColor || undefined,
+      progressBarTextColor: progressBarTextColor || undefined,
+      questionContainerBgColor: questionContainerBgColor || undefined,
+      activeChapterIndicatorColor: activeChapterIndicatorColor || undefined,
       logoUrl: logoUrl || undefined,
       faviconUrl: faviconUrl || undefined,
       notificationEmail: notificationEmail || undefined,
@@ -192,7 +248,7 @@ export default function BrandingPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Organization Name</Label>
+                  <Label htmlFor="name">Organization Name (optional)</Label>
                   <Input
                     id="name"
                     value={name}
@@ -204,6 +260,7 @@ export default function BrandingPage() {
                     placeholder="Your Organization"
                     className={fieldErrors.name ? "border-destructive" : ""}
                   />
+                  <p className="text-xs text-muted-foreground">Leave empty to show only the logo (centered)</p>
                   {fieldErrors.name && (
                     <p className="text-xs text-destructive">
                       {fieldErrors.name}
@@ -377,49 +434,206 @@ export default function BrandingPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="logoUrl">Logo URL</Label>
-                  <Input
-                    id="logoUrl"
-                    value={logoUrl}
-                    onChange={(e) => {
-                      setLogoUrl(e.target.value);
-                      if (fieldErrors.logoUrl)
-                        setFieldErrors((p) => ({ ...p, logoUrl: undefined }));
-                    }}
-                    placeholder="https://example.com/logo.png"
-                    className={fieldErrors.logoUrl ? "border-destructive" : ""}
-                  />
-                  {fieldErrors.logoUrl && (
-                    <p className="text-xs text-destructive">
-                      {fieldErrors.logoUrl}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="startButtonColor">Start Button Color</Label>
+                    <div className="flex gap-2">
+                      <input
+                        type="color"
+                        id="startButtonColor"
+                        value={startButtonColor || primaryColor}
+                        onChange={(e) => setStartButtonColor(e.target.value)}
+                        className="h-10 w-12 cursor-pointer rounded border p-1"
+                      />
+                      <Input
+                        value={startButtonColor}
+                        onChange={(e) => setStartButtonColor(e.target.value)}
+                        placeholder="Defaults to primary"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Color for "Start" and "Volgende" buttons
                     </p>
-                  )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="previousButtonColor">Previous Button Color</Label>
+                    <div className="flex gap-2">
+                      <input
+                        type="color"
+                        id="previousButtonColor"
+                        value={previousButtonColor || "#6b7280"}
+                        onChange={(e) => setPreviousButtonColor(e.target.value)}
+                        className="h-10 w-12 cursor-pointer rounded border p-1"
+                      />
+                      <Input
+                        value={previousButtonColor}
+                        onChange={(e) => setPreviousButtonColor(e.target.value)}
+                        placeholder="Defaults to gray"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Color for "Vorige" buttons
+                    </p>
+                  </div>
                 </div>
 
+                <Separator />
+                <h4 className="text-sm font-semibold pt-2">Vorige/Volgende vraag knoppen</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="nextQuestionButtonColor">Volgende Vraag Color</Label>
+                    <div className="flex gap-2">
+                      <input type="color" id="nextQuestionButtonColor" value={nextQuestionButtonColor || primaryColor}
+                        onChange={(e) => setNextQuestionButtonColor(e.target.value)}
+                        className="h-10 w-12 cursor-pointer rounded border p-1" />
+                      <Input value={nextQuestionButtonColor}
+                        onChange={(e) => setNextQuestionButtonColor(e.target.value)}
+                        placeholder="Defaults to primary" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Text color for "Volgende vraag"</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="prevQuestionButtonColor">Vorige Vraag Color</Label>
+                    <div className="flex gap-2">
+                      <input type="color" id="prevQuestionButtonColor" value={prevQuestionButtonColor || "#6b7280"}
+                        onChange={(e) => setPrevQuestionButtonColor(e.target.value)}
+                        className="h-10 w-12 cursor-pointer rounded border p-1" />
+                      <Input value={prevQuestionButtonColor}
+                        onChange={(e) => setPrevQuestionButtonColor(e.target.value)}
+                        placeholder="Defaults to gray" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Text color for "Vorige vraag"</p>
+                  </div>
+                </div>
+
+                <Separator />
+                <h4 className="text-sm font-semibold pt-2">Hoofdstuk navigatie balk</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="stepNavBgColor">Achtergrondkleur</Label>
+                    <div className="flex gap-2">
+                      <input type="color" id="stepNavBgColor" value={stepNavBgColor || "#ffffff"}
+                        onChange={(e) => setStepNavBgColor(e.target.value)}
+                        className="h-10 w-12 cursor-pointer rounded border p-1" />
+                      <Input value={stepNavBgColor}
+                        onChange={(e) => setStepNavBgColor(e.target.value)}
+                        placeholder="Defaults to white" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="stepNavTextColor">Tekstkleur</Label>
+                    <div className="flex gap-2">
+                      <input type="color" id="stepNavTextColor" value={stepNavTextColor || "#374151"}
+                        onChange={(e) => setStepNavTextColor(e.target.value)}
+                        className="h-10 w-12 cursor-pointer rounded border p-1" />
+                      <Input value={stepNavTextColor}
+                        onChange={(e) => setStepNavTextColor(e.target.value)}
+                        placeholder="Defaults to dark" />
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-2">
-                  <Label htmlFor="faviconUrl">Favicon URL</Label>
-                  <Input
-                    id="faviconUrl"
-                    value={faviconUrl}
-                    onChange={(e) => {
-                      setFaviconUrl(e.target.value);
-                      if (fieldErrors.faviconUrl)
-                        setFieldErrors((p) => ({
-                          ...p,
-                          faviconUrl: undefined,
-                        }));
-                    }}
-                    placeholder="https://example.com/favicon.ico"
-                    className={
-                      fieldErrors.faviconUrl ? "border-destructive" : ""
-                    }
-                  />
-                  {fieldErrors.faviconUrl && (
-                    <p className="text-xs text-destructive">
-                      {fieldErrors.faviconUrl}
-                    </p>
-                  )}
+                  <Label htmlFor="activeChapterIndicatorColor">Actief hoofdstuk indicator kleur</Label>
+                  <div className="flex gap-2">
+                    <input type="color" id="activeChapterIndicatorColor" value={activeChapterIndicatorColor || primaryColor}
+                      onChange={(e) => setActiveChapterIndicatorColor(e.target.value)}
+                      className="h-10 w-12 cursor-pointer rounded border p-1" />
+                    <Input value={activeChapterIndicatorColor}
+                      onChange={(e) => setActiveChapterIndicatorColor(e.target.value)}
+                      placeholder="Defaults to primary" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Color of the filled dot next to the active chapter in the dropdown</p>
+                </div>
+
+                <Separator />
+                <h4 className="text-sm font-semibold pt-2">Voortgangsbalk</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="progressBarBgColor">Achtergrond</Label>
+                    <div className="flex gap-2">
+                      <input type="color" id="progressBarBgColor" value={progressBarBgColor || "#ffffff"}
+                        onChange={(e) => setProgressBarBgColor(e.target.value)}
+                        className="h-10 w-12 cursor-pointer rounded border p-1" />
+                      <Input value={progressBarBgColor}
+                        onChange={(e) => setProgressBarBgColor(e.target.value)}
+                        placeholder="#ffffff" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="progressBarColor">Balk kleur</Label>
+                    <div className="flex gap-2">
+                      <input type="color" id="progressBarColor" value={progressBarColor || primaryColor}
+                        onChange={(e) => setProgressBarColor(e.target.value)}
+                        className="h-10 w-12 cursor-pointer rounded border p-1" />
+                      <Input value={progressBarColor}
+                        onChange={(e) => setProgressBarColor(e.target.value)}
+                        placeholder="Primary" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="progressBarTextColor">Tekstkleur</Label>
+                    <div className="flex gap-2">
+                      <input type="color" id="progressBarTextColor" value={progressBarTextColor || "#6b7280"}
+                        onChange={(e) => setProgressBarTextColor(e.target.value)}
+                        className="h-10 w-12 cursor-pointer rounded border p-1" />
+                      <Input value={progressBarTextColor}
+                        onChange={(e) => setProgressBarTextColor(e.target.value)}
+                        placeholder="#6b7280" />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+                <h4 className="text-sm font-semibold pt-2">Vragencontainer</h4>
+                <div className="space-y-2">
+                  <Label htmlFor="questionContainerBgColor">Achtergrondkleur</Label>
+                  <div className="flex gap-2">
+                    <input type="color" id="questionContainerBgColor" value={questionContainerBgColor || "#ffffff"}
+                      onChange={(e) => setQuestionContainerBgColor(e.target.value)}
+                      className="h-10 w-12 cursor-pointer rounded border p-1" />
+                    <Input value={questionContainerBgColor}
+                      onChange={(e) => setQuestionContainerBgColor(e.target.value)}
+                      placeholder="Defaults to white" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Background color of the card containing questions and answers</p>
+                </div>
+
+                <Separator />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Logo</Label>
+                    <ImageUpload
+                      value={logoUrl || null}
+                      onChange={(url) => {
+                        setLogoUrl(url || "");
+                        if (fieldErrors.logoUrl)
+                          setFieldErrors((p) => ({ ...p, logoUrl: undefined }));
+                      }}
+                    />
+                    {fieldErrors.logoUrl && (
+                      <p className="text-xs text-destructive">
+                        {fieldErrors.logoUrl}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Favicon</Label>
+                    <ImageUpload
+                      value={faviconUrl || null}
+                      onChange={(url) => {
+                        setFaviconUrl(url || "");
+                        if (fieldErrors.faviconUrl)
+                          setFieldErrors((p) => ({ ...p, faviconUrl: undefined }));
+                      }}
+                    />
+                    {fieldErrors.faviconUrl && (
+                      <p className="text-xs text-destructive">
+                        {fieldErrors.faviconUrl}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -476,9 +690,10 @@ export default function BrandingPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="rounded-lg border overflow-hidden">
+                <div className="border overflow-hidden text-sm">
+                  {/* Header */}
                   <div
-                    className="p-4 flex items-center gap-3"
+                    className="p-3 flex items-center gap-2"
                     style={{
                       backgroundColor: primaryColor,
                       color: headerTextColor || "#fff",
@@ -488,54 +703,144 @@ export default function BrandingPage() {
                       <img
                         src={logoUrl}
                         alt="Logo"
-                        className="h-8 w-8 rounded object-contain bg-white/20 p-1"
+                        className="h-6 w-6 object-contain bg-white/20 p-0.5"
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = "none";
                         }}
                       />
                     ) : (
-                      <div className="h-8 w-8 rounded bg-white/20 flex items-center justify-center text-sm font-bold">
+                      <div className="h-6 w-6 bg-white/20 flex items-center justify-center text-xs font-bold">
                         {name?.[0] || "G"}
                       </div>
                     )}
-                    <span className="font-semibold">
+                    <span className="font-semibold text-sm">
                       {name || "Your Organization"}
                     </span>
                   </div>
 
+                  {/* Step nav bar */}
                   <div
-                    className="p-6 space-y-4"
+                    className="px-3 py-1.5 flex items-center gap-2 border-b"
+                    style={{
+                      backgroundColor: stepNavBgColor || "#ffffff",
+                      color: stepNavTextColor || "#374151",
+                    }}
+                  >
+                    <span className="text-xs font-medium">Stap 1/3</span>
+                    <span className="text-[10px] opacity-70">Naar hoofdstuk</span>
+                    <div className="flex-1 h-7 border bg-white/80 px-2 flex items-center text-xs">
+                      <span className="truncate">1. Voorbeeld hoofdstuk</span>
+                    </div>
+                  </div>
+
+                  {/* Progress bar area */}
+                  <div
+                    className="px-3 py-1.5"
+                    style={{
+                      backgroundColor: progressBarBgColor || "#ffffff",
+                      color: progressBarTextColor || "#6b7280",
+                    }}
+                  >
+                    <div className="flex items-center justify-between text-[10px] mb-1">
+                      <span>Vraag 2 van 5 van het hoofdstuk</span>
+                    </div>
+                    <div className="h-1 bg-gray-200 overflow-hidden">
+                      <div
+                        className="h-full"
+                        style={{
+                          width: "40%",
+                          backgroundColor: progressBarColor || primaryColor,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Page background + question card */}
+                  <div
+                    className="p-5 space-y-4"
                     style={{ backgroundColor: secondaryColor }}
                   >
-                    <div className="bg-white rounded-lg p-4 shadow-sm space-y-3">
-                      <h3
-                        className="font-semibold text-lg"
-                        style={{ color: primaryColor }}
-                      >
-                        Sample Questionnaire
+                    <div
+                      className="p-4 border shadow-sm space-y-3"
+                      style={{ backgroundColor: questionContainerBgColor || "#ffffff" }}
+                    >
+                      <h3 className="font-semibold text-sm">
+                        Is uw systeem voorzien van een certificering?
                       </h3>
                       <p
-                        className="text-sm"
+                        className="text-xs"
                         style={{ color: subtextColor || "#666666" }}
                       >
-                        This is how your questionnaire will look with the
-                        current branding settings.
+                        Selecteer het antwoord dat het beste past.
                       </p>
 
-                      <Separator />
-
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">
-                          Sample Question
-                        </label>
-                        <div className="h-10 rounded-md border bg-gray-50" />
+                      <div className="space-y-1.5">
+                        <div className="border-2 border-gray-200 p-2.5 flex items-center gap-2 hover:border-gray-300 transition-colors">
+                          <div className="h-4 w-4 rounded-full border-2 border-gray-300 flex-shrink-0" />
+                          <span className="text-xs">Ja, volledig gecertificeerd</span>
+                        </div>
+                        <div
+                          className="border-2 p-2.5 flex items-center gap-2"
+                          style={{ borderColor: primaryColor, backgroundColor: primaryColor + "0d" }}
+                        >
+                          <div
+                            className="h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center"
+                            style={{ borderColor: primaryColor }}
+                          >
+                            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: primaryColor }} />
+                          </div>
+                          <span className="text-xs font-medium" style={{ color: primaryColor }}>Nee, nog niet</span>
+                        </div>
+                        <div className="border-2 border-gray-200 p-2.5 flex items-center gap-2 hover:border-gray-300 transition-colors">
+                          <div className="h-4 w-4 rounded-full border-2 border-gray-300 flex-shrink-0" />
+                          <span className="text-xs">Gedeeltelijk</span>
+                        </div>
                       </div>
+                    </div>
 
+                    {/* Vorige/Volgende vraag buttons */}
+                    <div className="flex items-center justify-between">
                       <button
-                        className="px-4 py-2 rounded-md text-white text-sm font-medium"
-                        style={{ backgroundColor: primaryColor }}
+                        className="px-3 py-1.5 text-xs font-medium border"
+                        style={{
+                          backgroundColor: prevQuestionButtonColor || previousButtonColor || "#6b7280",
+                          borderColor: prevQuestionButtonColor || previousButtonColor || "#6b7280",
+                          color: "#fff",
+                        }}
                       >
-                        Submit
+                        ← Vorige vraag
+                      </button>
+                      <button
+                        className="px-3 py-1.5 text-xs font-medium border"
+                        style={{
+                          backgroundColor: nextQuestionButtonColor || startButtonColor || primaryColor,
+                          borderColor: nextQuestionButtonColor || startButtonColor || primaryColor,
+                          color: "#fff",
+                        }}
+                      >
+                        Volgende vraag →
+                      </button>
+                    </div>
+
+                    {/* Start / Vorige buttons */}
+                    <div className="flex gap-2 justify-center pt-2">
+                      <button
+                        className="px-3 py-1.5 text-white text-xs font-medium border"
+                        style={{
+                          backgroundColor: previousButtonColor || "#6b7280",
+                          borderColor: previousButtonColor || "#6b7280",
+                        }}
+                      >
+                        ← Vorige
+                      </button>
+                      <button
+                        className="px-3 py-1.5 text-white text-xs font-medium border"
+                        style={{
+                          backgroundColor: startButtonColor || primaryColor,
+                          borderColor: startButtonColor || primaryColor,
+                        }}
+                      >
+                        Start →
                       </button>
                     </div>
                   </div>

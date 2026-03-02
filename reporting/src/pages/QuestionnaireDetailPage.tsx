@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -84,8 +85,11 @@ import {
   Save,
   Trash2,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { IconPicker, DynamicIcon } from "@/components/IconPicker";
+import { ImageUpload } from "@/components/ImageUpload";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Option {
   id: string;
@@ -100,6 +104,8 @@ interface Question {
   code: string | null;
   prompt: string;
   helpText: string | null;
+  imageUrl: string | null;
+  imageScale: number | null;
   isRequired: boolean;
   displayOrder: number;
   options: Option[];
@@ -110,6 +116,9 @@ interface Section {
   code: string | null;
   title: string;
   description: string | null;
+  icon: string | null;
+  imageUrl: string | null;
+  imageScale: number | null;
   displayOrder: number;
   questions: Question[];
 }
@@ -119,6 +128,15 @@ interface Questionnaire {
   title: string;
   slug: string;
   description: string | null;
+  introTitle: string | null;
+  introDescription: string | null;
+  introImageUrl: string | null;
+  introImageScale: number | null;
+  estimatedMinutes: number | null;
+  completionTitle: string | null;
+  completionDescription: string | null;
+  completionImageUrl: string | null;
+  showConfetti: boolean;
   isPublished: boolean;
   sections: Section[];
 }
@@ -177,6 +195,8 @@ export default function QuestionnaireDetailPage() {
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [sectionTitle, setSectionTitle] = useState("");
   const [sectionDescription, setSectionDescription] = useState("");
+  const [sectionIcon, setSectionIcon] = useState<string | null>(null);
+  const [sectionImageUrl, setSectionImageUrl] = useState<string | null>(null);
   const [sectionErrors, setSectionErrors] = useState<FieldErrors<SectionData>>(
     {},
   );
@@ -187,10 +207,27 @@ export default function QuestionnaireDetailPage() {
   const [questionSectionId, setQuestionSectionId] = useState("");
   const [questionText, setQuestionText] = useState("");
   const [questionHelpText, setQuestionHelpText] = useState("");
+  const [questionImageUrl, setQuestionImageUrl] = useState<string | null>(null);
   const [questionRequired, setQuestionRequired] = useState(false);
   const [questionErrors, setQuestionErrors] = useState<
     FieldErrors<QuestionData>
   >({});
+
+  // Questionnaire intro state
+  const [introTitle, setIntroTitle] = useState("");
+  const [introDescription, setIntroDescription] = useState("");
+  const [introImageUrl, setIntroImageUrl] = useState<string | null>(null);
+  const [estimatedMinutes, setEstimatedMinutes] = useState<string>("");
+  const [introSaved, setIntroSaved] = useState(false);
+  const introSyncedRef = useRef(false);
+
+  // Questionnaire completion state
+  const [completionTitle, setCompletionTitle] = useState("");
+  const [completionDescription, setCompletionDescription] = useState("");
+  const [completionImageUrl, setCompletionImageUrl] = useState<string | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [completionSaved, setCompletionSaved] = useState(false);
+  const completionSyncedRef = useRef(false);
 
   // Option dialog
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
@@ -235,6 +272,23 @@ export default function QuestionnaireDetailPage() {
     enabled: !!selectedSubmissionId && submissionDetailOpen,
   });
 
+  useEffect(() => {
+    if (questionnaire && !introSyncedRef.current) {
+      introSyncedRef.current = true;
+      setIntroTitle(questionnaire.introTitle || "");
+      setIntroDescription(questionnaire.introDescription || "");
+      setIntroImageUrl(questionnaire.introImageUrl || null);
+      setEstimatedMinutes(questionnaire.estimatedMinutes?.toString() || "");
+    }
+    if (questionnaire && !completionSyncedRef.current) {
+      completionSyncedRef.current = true;
+      setCompletionTitle(questionnaire.completionTitle || "");
+      setCompletionDescription(questionnaire.completionDescription || "");
+      setCompletionImageUrl(questionnaire.completionImageUrl || null);
+      setShowConfetti(questionnaire.showConfetti ?? false);
+    }
+  }, [questionnaire]);
+
   const updateLeadStatusMutation = useMutation({
     mutationFn: async ({
       submissionId,
@@ -258,7 +312,9 @@ export default function QuestionnaireDetailPage() {
     mutationFn: async () => {
       await api.post(`/questionnaires/${id}/sections`, {
         title: sectionTitle,
-        description: sectionDescription,
+        description: sectionDescription || undefined,
+        icon: sectionIcon || undefined,
+        imageUrl: sectionImageUrl || undefined,
       });
     },
     onSuccess: () => {
@@ -272,7 +328,9 @@ export default function QuestionnaireDetailPage() {
     mutationFn: async () => {
       await api.patch(`/questionnaires/${id}/sections/${editingSection!.id}`, {
         title: sectionTitle,
-        description: sectionDescription,
+        description: sectionDescription || undefined,
+        icon: sectionIcon,
+        imageUrl: sectionImageUrl,
       });
     },
     onSuccess: () => {
@@ -304,6 +362,7 @@ export default function QuestionnaireDetailPage() {
       await api.post(`/sections/${questionSectionId}/questions`, {
         prompt: questionText,
         helpText: questionHelpText || undefined,
+        imageUrl: questionImageUrl || undefined,
         isRequired: questionRequired,
       });
     },
@@ -321,6 +380,7 @@ export default function QuestionnaireDetailPage() {
         {
           prompt: questionText,
           helpText: questionHelpText || null,
+          imageUrl: questionImageUrl,
           isRequired: questionRequired,
         },
       );
@@ -400,6 +460,38 @@ export default function QuestionnaireDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["questionnaire", id] }),
   });
 
+  const updateIntroMutation = useMutation({
+    mutationFn: async () => {
+      await api.patch(`/questionnaires/${id}`, {
+        introTitle: introTitle || null,
+        introDescription: introDescription || null,
+        introImageUrl: introImageUrl,
+        estimatedMinutes: estimatedMinutes ? parseInt(estimatedMinutes, 10) : null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["questionnaire", id] });
+      setIntroSaved(true);
+      setTimeout(() => setIntroSaved(false), 3000);
+    },
+  });
+
+  const updateCompletionMutation = useMutation({
+    mutationFn: async () => {
+      await api.patch(`/questionnaires/${id}`, {
+        completionTitle: completionTitle || null,
+        completionDescription: completionDescription || null,
+        completionImageUrl: completionImageUrl,
+        showConfetti,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["questionnaire", id] });
+      setCompletionSaved(true);
+      setTimeout(() => setCompletionSaved(false), 3000);
+    },
+  });
+
   function toggleSection(sectionId: string) {
     setCollapsedSections((prev) => {
       const next = new Set(prev);
@@ -449,6 +541,8 @@ export default function QuestionnaireDetailPage() {
     setEditingSection(null);
     setSectionTitle("");
     setSectionDescription("");
+    setSectionIcon(null);
+    setSectionImageUrl(null);
     setSectionErrors({});
   }
 
@@ -457,6 +551,7 @@ export default function QuestionnaireDetailPage() {
     setQuestionSectionId("");
     setQuestionText("");
     setQuestionHelpText("");
+    setQuestionImageUrl(null);
     setQuestionRequired(false);
     setQuestionErrors({});
   }
@@ -513,6 +608,8 @@ export default function QuestionnaireDetailPage() {
     setEditingSection(section);
     setSectionTitle(section.title);
     setSectionDescription(section.description || "");
+    setSectionIcon(section.icon);
+    setSectionImageUrl(section.imageUrl);
     setSectionDialogOpen(true);
   }
 
@@ -527,6 +624,7 @@ export default function QuestionnaireDetailPage() {
     setQuestionSectionId(sectionId);
     setQuestionText(question.prompt);
     setQuestionHelpText(question.helpText || "");
+    setQuestionImageUrl(question.imageUrl || null);
     setQuestionRequired(question.isRequired);
     setQuestionDialogOpen(true);
   }
@@ -563,9 +661,7 @@ export default function QuestionnaireDetailPage() {
   const sortedSections = [...(questionnaire.sections || [])].sort(
     (a, b) => a.displayOrder - b.displayOrder,
   );
-  const submittedSubmissions = (submissions ?? []).filter(
-    (s) => s.respondent !== null,
-  );
+  const submittedSubmissions = submissions ?? [];
 
   return (
     <div className="space-y-6">
@@ -606,8 +702,10 @@ export default function QuestionnaireDetailPage() {
         </Badge>
       </div>
 
-      <Tabs defaultValue="sections">
+      <Tabs defaultValue="introduction">
         <TabsList>
+          <TabsTrigger value="introduction">Introduction</TabsTrigger>
+          <TabsTrigger value="completion">Completion</TabsTrigger>
           <TabsTrigger value="sections">
             Sections ({sortedSections.length})
           </TabsTrigger>
@@ -615,6 +713,128 @@ export default function QuestionnaireDetailPage() {
             Submissions ({submittedSubmissions.length})
           </TabsTrigger>
         </TabsList>
+
+        {/* Introduction tab */}
+        <TabsContent value="introduction" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Questionnaire Introduction Page</CardTitle>
+              <CardDescription>
+                This is the first page respondents see before starting the questionnaire.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Intro Title</Label>
+                    <Input
+                      placeholder={questionnaire.title}
+                      value={introTitle}
+                      onChange={(e) => setIntroTitle(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Defaults to the questionnaire title if empty.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Intro Description</Label>
+                    <Textarea
+                      placeholder="Welcome the respondent, explain the purpose, and set expectations..."
+                      value={introDescription}
+                      onChange={(e) => setIntroDescription(e.target.value)}
+                      rows={5}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Estimated Duration (minutes)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      placeholder="e.g. 2"
+                      value={estimatedMinutes}
+                      onChange={(e) => setEstimatedMinutes(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Intro Image</Label>
+                  <ImageUpload
+                    value={introImageUrl}
+                    onChange={setIntroImageUrl}
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={() => updateIntroMutation.mutate()}
+                disabled={updateIntroMutation.isPending}
+              >
+                <Save className="h-4 w-4" />
+                {updateIntroMutation.isPending ? "Saving..." : introSaved ? "Saved!" : "Save Introduction"}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Completion tab */}
+        <TabsContent value="completion" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Questionnaire Completion Page</CardTitle>
+              <CardDescription>
+                Customize what respondents see after finishing the questionnaire and submitting their email.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Completion Title</Label>
+                    <Input
+                      placeholder="Bedankt voor het invullen!"
+                      value={completionTitle}
+                      onChange={(e) => setCompletionTitle(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Shown as the heading on the completion page. Defaults to a generic thank-you message if empty.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Completion Description</Label>
+                    <Textarea
+                      placeholder="Describe what happens next, or thank the respondent..."
+                      value={completionDescription}
+                      onChange={(e) => setCompletionDescription(e.target.value)}
+                      rows={5}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      id="showConfetti"
+                      checked={showConfetti}
+                      onCheckedChange={setShowConfetti}
+                    />
+                    <Label htmlFor="showConfetti">Show confetti animation on completion</Label>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Completion Image</Label>
+                  <ImageUpload
+                    value={completionImageUrl}
+                    onChange={setCompletionImageUrl}
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={() => updateCompletionMutation.mutate()}
+                disabled={updateCompletionMutation.isPending}
+              >
+                <Save className="h-4 w-4" />
+                {updateCompletionMutation.isPending ? "Saving..." : completionSaved ? "Saved!" : "Save Completion"}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Sections tab */}
         <TabsContent value="sections" className="space-y-4">
@@ -660,23 +880,26 @@ export default function QuestionnaireDetailPage() {
                   className={`transition-opacity ${dragIdx === sIdx ? "opacity-50" : ""}`}
                 >
                   <CollapsibleTrigger asChild>
-                    <CardHeader className="cursor-pointer select-none">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                    <CardHeader className="cursor-pointer select-none p-4">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
                           <div
-                            className="cursor-grab active:cursor-grabbing p-1 -ml-1"
+                            className="cursor-grab active:cursor-grabbing p-1 -ml-1 flex-shrink-0"
                             onClick={(e) => e.stopPropagation()}
                             onMouseDown={(e) => e.stopPropagation()}
                           >
                             <GripVertical className="h-4 w-4 text-muted-foreground" />
                           </div>
-                          {isCollapsed ? (
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                          )}
-                          <div>
-                            <CardTitle className="text-lg">
+                          <div className="flex-shrink-0">
+                            {isCollapsed ? (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
+                          <DynamicIcon name={section.icon} className="h-5 w-5 text-primary flex-shrink-0" />
+                          <div className="min-w-0 overflow-hidden">
+                            <CardTitle className="text-lg truncate">
                               {section.code && (
                                 <span className="text-primary mr-1">
                                   {section.code}.
@@ -685,23 +908,24 @@ export default function QuestionnaireDetailPage() {
                               {section.title}
                             </CardTitle>
                             {section.description && (
-                              <CardDescription>
+                              <CardDescription className="truncate">
                                 {section.description}
                               </CardDescription>
                             )}
                           </div>
                         </div>
                         <div
-                          className="flex items-center gap-1"
+                          className="flex items-center gap-1 flex-shrink-0 ml-auto"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <Badge variant="outline" className="text-xs mr-2">
+                          <Badge variant="outline" className="text-xs whitespace-nowrap">
                             {section.questions.length} question
                             {section.questions.length !== 1 ? "s" : ""}
                           </Badge>
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="flex-shrink-0"
                             onClick={() => openEditSection(section)}
                           >
                             <Pencil className="h-4 w-4" />
@@ -710,6 +934,7 @@ export default function QuestionnaireDetailPage() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              className="flex-shrink-0"
                               onClick={() =>
                                 setDeleteTarget({
                                   type: "section",
@@ -932,7 +1157,7 @@ export default function QuestionnaireDetailPage() {
                         <TableCell className="font-medium">
                           {sub.respondent?.email || (
                             <span className="text-muted-foreground italic">
-                              Anonymous
+                              Anoniem
                             </span>
                           )}
                           {sub.respondent?.isEmailVerified && (
@@ -1019,7 +1244,7 @@ export default function QuestionnaireDetailPage() {
               Submission Detail
             </DialogTitle>
             <DialogDescription>
-              {submissionDetail?.respondent?.email} —{" "}
+              {submissionDetail?.respondent?.email || "Anoniem"} —{" "}
               {submissionDetail?.questionnaire?.title}
             </DialogDescription>
           </DialogHeader>
@@ -1031,7 +1256,7 @@ export default function QuestionnaireDetailPage() {
                   <div>
                     <span className="text-muted-foreground">Respondent:</span>
                     <p className="font-medium">
-                      {submissionDetail.respondent?.email ?? "Anonymous"}
+                      {submissionDetail.respondent?.email ?? "Anoniem"}
                     </p>
                   </div>
                   <div>
@@ -1131,14 +1356,14 @@ export default function QuestionnaireDetailPage() {
 
       {/* Section Dialog */}
       <Dialog open={sectionDialogOpen} onOpenChange={setSectionDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {editingSection ? "Edit Section" : "Add Section"}
             </DialogTitle>
             <DialogDescription>
               {editingSection
-                ? "Update the section details"
+                ? "Update the section details, icon, and intro image"
                 : "Create a new section for this questionnaire"}
             </DialogDescription>
           </DialogHeader>
@@ -1163,11 +1388,25 @@ export default function QuestionnaireDetailPage() {
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
-              <Input
-                placeholder="Section description (optional)"
+              <Textarea
+                placeholder="Describe this section for respondents (shown on the section intro page)"
                 value={sectionDescription}
                 onChange={(e) => setSectionDescription(e.target.value)}
+                rows={3}
               />
+            </div>
+            <div className="grid gap-4 grid-cols-2">
+              <div className="space-y-2">
+                <Label>Icon (stepper)</Label>
+                <IconPicker value={sectionIcon} onChange={setSectionIcon} />
+              </div>
+              <div className="space-y-2">
+                <Label>Section Image</Label>
+                <ImageUpload
+                  value={sectionImageUrl}
+                  onChange={setSectionImageUrl}
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -1228,6 +1467,16 @@ export default function QuestionnaireDetailPage() {
                 placeholder="Additional context or instructions for the respondent"
                 value={questionHelpText}
                 onChange={(e) => setQuestionHelpText(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>
+                Question Image{" "}
+                <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <ImageUpload
+                value={questionImageUrl}
+                onChange={setQuestionImageUrl}
               />
             </div>
             <div className="flex items-center gap-2">

@@ -111,9 +111,6 @@ The `/ui` app supports special query parameters for development/testing:
 | Parameter | Effect |
 |-----------|--------|
 | `skipEmailStep=1` | Bypasses email verification, shows instant results locally (no backend calls) |
-| `prefilled=1` | Randomly answers all questions and jumps to the last section |
-
-Both parameters work together and re-apply on restart.
 
 ---
 
@@ -199,7 +196,7 @@ docker compose exec api npm run seed
 
 - **Normal flow:** http://localhost:3000/croonwolterdros/gacs-compliance-check
 - **Instant results (skip email):** http://localhost:3000/croonwolterdros/gacs-compliance-check?skipEmailStep=1
-- **Prefilled + instant results:** http://localhost:3000/croonwolterdros/gacs-compliance-check?prefilled=1&skipEmailStep=1
+- **Instant results:** http://localhost:3000/croonwolterdros/gacs-compliance-check?skipEmailStep=1
 
 ### Login Credentials (from seed)
 
@@ -209,7 +206,7 @@ docker compose exec api npm run seed
 | Reporting | `owner@croonwolterdros.nl` | `Owner123!` | Tenant Owner |
 | Reporting | `admin@croonwolterdros.nl` | `TenantAdmin123!` | Tenant Admin |
 
-When logging into **Reporting**, use tenant slug: `croonwolterdros`
+When logging into **Reporting**, use tenant slug: `croonwol terdros`
 
 ---
 

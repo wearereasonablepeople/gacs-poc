@@ -98,6 +98,10 @@ async function main() {
       title: 'GACS Compliance Check',
       description:
         'Checklist technische eisen GACS conform NEN-EN-ISO 52120. Controleer of uw gebouwautomatisering- en controlesysteem voldoet aan de wettelijke eisen.',
+      introTitle: 'Voldoet uw gebouw aan de GACS eisen voor 2026?',
+      introDescription:
+        'Vanaf 2026 moeten utiliteitsgebouwen met installaties >290kW voldoen aan strenge eisen voor gebouwautomatisering (GACS) conform het Bouwbesluit.\n\nGebruik deze tool om in 2 minuten te checken hoe ver u bent.',
+      estimatedMinutes: 2,
       isPublished: true,
       publishedAt: new Date(),
       createdById: tenantOwner.id,
@@ -119,6 +123,8 @@ async function main() {
           questionnaireId: questionnaire.id,
           code: sectionData.code,
           title: sectionData.title,
+          icon: sectionData.icon || null,
+          description: sectionData.description || null,
           displayOrder: sectionData.displayOrder,
         },
       });
@@ -210,6 +216,8 @@ interface QuestionData {
 interface SectionData {
   code: string;
   title: string;
+  icon?: string;
+  description?: string;
   displayOrder: number;
   questions: QuestionData[];
 }
@@ -309,6 +317,8 @@ function getGACSChecklistData(): SectionData[] {
     {
       code: '1',
       title: 'Verwarmingssysteem onderdelen',
+      icon: 'flame',
+      description: 'In dit onderdeel bekijken we de automatisering van uw verwarmingssysteem, van individuele ruimteregeling tot ketelsequenties.',
       displayOrder: 1,
       questions: [
         {
@@ -433,6 +443,8 @@ function getGACSChecklistData(): SectionData[] {
     {
       code: '2',
       title: 'Warm tapwater onderdelen',
+      icon: 'droplets',
+      description: 'Hoe wordt uw warm tapwatersysteem aangestuurd? Bekijk de regeling en automatisering van warm tapwater.',
       displayOrder: 2,
       questions: [
         {
@@ -484,6 +496,8 @@ function getGACSChecklistData(): SectionData[] {
     {
       code: '3',
       title: 'Airconditioningssysteem onderdelen',
+      icon: 'snowflake',
+      description: 'Hoe wordt de koeling in uw gebouw geregeld? Controleer de automatisering van uw airconditioningssysteem.',
       displayOrder: 3,
       questions: [
         {
@@ -597,6 +611,8 @@ function getGACSChecklistData(): SectionData[] {
     {
       code: '4',
       title: 'Ventilatiesysteem onderdelen',
+      icon: 'wind',
+      description: 'Bekijk hoe het ventilatiesysteem in uw gebouw geautomatiseerd is.',
       displayOrder: 4,
       questions: [
         {
@@ -715,6 +731,8 @@ function getGACSChecklistData(): SectionData[] {
     {
       code: '5',
       title: 'Verlichtingssysteem onderdelen',
+      icon: 'lightbulb',
+      description: 'Hoe wordt de verlichting in uw gebouw aangestuurd?',
       displayOrder: 5,
       questions: [
         {
@@ -744,6 +762,8 @@ function getGACSChecklistData(): SectionData[] {
     {
       code: '6',
       title: 'Zonweringssysteem onderdelen',
+      icon: 'sun',
+      description: 'Is de zonwering in uw gebouw automatisch geregeld?',
       displayOrder: 6,
       questions: [
         {
@@ -764,6 +784,8 @@ function getGACSChecklistData(): SectionData[] {
     {
       code: '7',
       title: 'Technisch gebouwmanagement onderdelen',
+      icon: 'monitor-cog',
+      description: 'Hoe worden de technisch gebouwmanagementfuncties in uw gebouw geautomatiseerd?',
       displayOrder: 7,
       questions: [
         {

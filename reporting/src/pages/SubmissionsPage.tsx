@@ -358,11 +358,17 @@ export default function SubmissionsPage() {
                     onClick={() => openDetail(sub.id)}
                   >
                     <TableCell className="font-medium">
-                      {sub.respondent?.email}
-                      {sub.respondent?.isEmailVerified && (
-                        <Badge variant="outline" className="ml-2 text-xs">
-                          Verified
-                        </Badge>
+                      {sub.respondent?.email ? (
+                        <>
+                          {sub.respondent.email}
+                          {sub.respondent.isEmailVerified && (
+                            <Badge variant="outline" className="ml-2 text-xs">
+                              Verified
+                            </Badge>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground italic">Anoniem</span>
                       )}
                     </TableCell>
                     <TableCell>{sub.questionnaire.title}</TableCell>
@@ -420,7 +426,7 @@ export default function SubmissionsPage() {
               Submission Detail
             </DialogTitle>
             <DialogDescription>
-              {submissionDetail?.respondent?.email} —{" "}
+              {submissionDetail?.respondent?.email || "Anoniem"} —{" "}
               {submissionDetail?.questionnaire?.title}
             </DialogDescription>
           </DialogHeader>
@@ -432,7 +438,7 @@ export default function SubmissionsPage() {
                   <div>
                     <span className="text-muted-foreground">Respondent:</span>
                     <p className="font-medium">
-                      {submissionDetail.respondent?.email ?? "Anonymous"}
+                      {submissionDetail.respondent?.email ?? "Anoniem"}
                     </p>
                   </div>
                   <div>

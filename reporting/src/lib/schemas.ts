@@ -66,7 +66,7 @@ export type InviteUserData = z.infer<typeof inviteUserSchema>;
 
 // ─── Branding ─────────────────────────────────────────────
 export const brandingSchema = z.object({
-  name: z.string().min(1, "Organization name is required"),
+  name: z.string().optional().or(z.literal("")),
   primaryColor: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, "Must be a valid hex color (e.g. #003366)"),
@@ -83,11 +83,66 @@ export const brandingSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/, "Must be a valid hex color (e.g. #cccccc)")
     .optional()
     .or(z.literal("")),
+  startButtonColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Must be a valid hex color")
+    .optional()
+    .or(z.literal("")),
+  previousButtonColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Must be a valid hex color")
+    .optional()
+    .or(z.literal("")),
+  nextQuestionButtonColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Must be a valid hex color")
+    .optional()
+    .or(z.literal("")),
+  prevQuestionButtonColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Must be a valid hex color")
+    .optional()
+    .or(z.literal("")),
+  stepNavBgColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Must be a valid hex color")
+    .optional()
+    .or(z.literal("")),
+  stepNavTextColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Must be a valid hex color")
+    .optional()
+    .or(z.literal("")),
+  progressBarBgColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Must be a valid hex color")
+    .optional()
+    .or(z.literal("")),
+  progressBarColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Must be a valid hex color")
+    .optional()
+    .or(z.literal("")),
+  progressBarTextColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Must be a valid hex color")
+    .optional()
+    .or(z.literal("")),
+  questionContainerBgColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Must be a valid hex color")
+    .optional()
+    .or(z.literal("")),
+  activeChapterIndicatorColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Must be a valid hex color")
+    .optional()
+    .or(z.literal("")),
   logoUrl: z
-    .union([z.string().url("Must be a valid URL"), z.literal("")])
+    .union([z.string().url("Must be a valid URL"), z.string().startsWith("/api/"), z.literal("")])
     .optional(),
   faviconUrl: z
-    .union([z.string().url("Must be a valid URL"), z.literal("")])
+    .union([z.string().url("Must be a valid URL"), z.string().startsWith("/api/"), z.literal("")])
     .optional(),
   notificationEmail: z
     .union([z.string().email("Must be a valid email address"), z.literal("")])

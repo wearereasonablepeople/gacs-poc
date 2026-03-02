@@ -160,7 +160,6 @@ export class SubmissionsController {
           : "all",
       createdFrom: createdFrom ? new Date(createdFrom) : undefined,
       createdTo: createdTo ? new Date(createdTo) : undefined,
-      hasRespondent: true,
     };
   }
 

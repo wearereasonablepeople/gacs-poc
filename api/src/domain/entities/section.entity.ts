@@ -6,6 +6,9 @@ export interface SectionEntity {
   code: string | null;
   title: string;
   description: string | null;
+  icon: string | null;
+  imageUrl: string | null;
+  imageScale: number | null;
   displayOrder: number;
   createdAt: Date;
   updatedAt: Date;

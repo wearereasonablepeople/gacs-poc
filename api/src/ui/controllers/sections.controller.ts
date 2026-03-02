@@ -17,13 +17,16 @@ export class SectionsController {
   @Post()
   create(
     @Param('questionnaireId') questionnaireId: string,
-    @Body() body: { code?: string; title: string; description?: string },
+    @Body() body: { code?: string; title: string; description?: string; icon?: string; imageUrl?: string; imageScale?: number },
   ) {
     return this.useCase.create(questionnaireId, body);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: { code?: string; title?: string; description?: string }) {
+  update(
+    @Param('id') id: string,
+    @Body() body: { code?: string; title?: string; description?: string; icon?: string; imageUrl?: string; imageScale?: number },
+  ) {
     return this.useCase.update(id, body);
   }
 

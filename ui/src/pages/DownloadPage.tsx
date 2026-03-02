@@ -117,6 +117,7 @@ export function DownloadPage() {
           tenantName: data.questionnaire.tenant.name,
           respondentEmail: data.respondentEmail,
           submittedAt: data.submittedAt,
+          logoUrl: data.questionnaire.tenant.logoUrl,
           sections: data.questionnaire.sections,
         };
 
@@ -181,10 +182,14 @@ export function DownloadPage() {
     ? { backgroundColor: tenant.secondaryColor }
     : {};
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!pdfData) return;
-    const doc = generateSubmissionPdf(pdfData);
-    doc.save(buildPdfFilename(pdfData.questionnaireTitle));
+    try {
+      const doc = await generateSubmissionPdf(pdfData);
+      doc.save(buildPdfFilename(pdfData.questionnaireTitle));
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+    }
   };
 
   if (pageState === "loading") {

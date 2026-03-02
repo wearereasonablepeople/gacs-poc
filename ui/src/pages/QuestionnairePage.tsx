@@ -8,7 +8,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ConfettiButton } from "@/components/ui/confetti-button";
 import {
   Dialog,
   DialogContent,
@@ -19,16 +18,21 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DynamicIcon } from "@/components/DynamicIcon";
 import api from "@/lib/api";
 import {
   cacheQuestionnaire,
   enqueue,
   getCachedQuestionnaire,
-  getQueueLength,
   isOnline,
   onConnectivityChange,
   processQueue,
@@ -41,6 +45,7 @@ import {
   getMotivationalMessage,
 } from "@/lib/pdf";
 import { emailSubmissionSchema } from "@/lib/schemas";
+import confetti from "canvas-confetti";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -48,14 +53,21 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Circle,
+  ClipboardCheck,
+  Clock,
   Download,
   Loader2,
-  RefreshCw,
   Send,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
   WifiOff,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
+
+// ─── Type definitions ────────────────────────────────────
 
 interface Option {
   id: string;
@@ -70,6 +82,8 @@ interface Question {
   code: string | null;
   prompt: string;
   helpText: string | null;
+  imageUrl: string | null;
+  imageScale: number | null;
   isRequired: boolean;
   options: Option[];
 }
@@ -79,6 +93,9 @@ interface Section {
   code: string | null;
   title: string;
   description: string | null;
+  icon: string | null;
+  imageUrl: string | null;
+  imageScale: number | null;
   questions: Question[];
 }
 
@@ -86,6 +103,15 @@ interface Questionnaire {
   id: string;
   title: string;
   description: string | null;
+  introTitle: string | null;
+  introDescription: string | null;
+  introImageUrl: string | null;
+  introImageScale: number | null;
+  estimatedMinutes: number | null;
+  completionTitle: string | null;
+  completionDescription: string | null;
+  completionImageUrl: string | null;
+  showConfetti: boolean;
   sections: Section[];
   tenant: {
     id: string;
@@ -95,37 +121,42 @@ interface Questionnaire {
     secondaryColor: string | null;
     headerTextColor: string | null;
     subtextColor: string | null;
+    startButtonColor: string | null;
+    previousButtonColor: string | null;
+    nextQuestionButtonColor: string | null;
+    prevQuestionButtonColor: string | null;
+    stepNavBgColor: string | null;
+    stepNavTextColor: string | null;
+    progressBarBgColor: string | null;
+    progressBarColor: string | null;
+    progressBarTextColor: string | null;
+    questionContainerBgColor: string | null;
+    activeChapterIndicatorColor: string | null;
     logoUrl: string | null;
     faviconUrl: string | null;
   };
 }
 
-interface PreviewResultItem {
-  sectionTitle: string;
-  sectionCode: string | null;
-  questionCode: string | null;
-  questionPrompt: string;
-  selectedLabel: string;
-  allowedOptions: string[];
+type Step =
+  | { type: "intro" }
+  | { type: "section-intro"; sectionIndex: number }
+  | { type: "question"; sectionIndex: number; questionIndex: number }
+  | { type: "email" }
+  | { type: "results" }
+  | { type: "email-sent" };
+
+function stepOrder(s: Step): number {
+  switch (s.type) {
+    case "intro": return 0;
+    case "section-intro": return 1000 + s.sectionIndex * 100;
+    case "question": return 1000 + s.sectionIndex * 100 + s.questionIndex + 1;
+    case "email": return 100000;
+    case "results": return 100001;
+    case "email-sent": return 100002;
+  }
 }
 
-interface PdfPreviewResponse {
-  questionnaireTitle: string;
-  tenantName: string;
-  results: {
-    overallScore: number;
-    totalScored: number;
-    totalGraded: number;
-    sectionScores: Array<{
-      title: string;
-      code: string | null;
-      scored: number;
-      total: number;
-      percentage: number;
-    }>;
-    notAllowedItems: PreviewResultItem[];
-  };
-}
+// ─── Main component ──────────────────────────────────────
 
 export function QuestionnairePage() {
   const { tenantSlug, questionnaireSlug } = useParams<{
@@ -134,127 +165,56 @@ export function QuestionnairePage() {
   }>();
   const [searchParams] = useSearchParams();
 
-  // localStorage key scoped to this specific questionnaire
-  const storageKey = `gacs-draft:${tenantSlug}/${questionnaireSlug}`;
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [step, setStepRaw] = useState<Step>({ type: "intro" });
+  const navDirectionRef = useRef<"fwd" | "back">("fwd");
 
-  // Restore persisted draft from localStorage (runs once)
-  const savedDraft = useMemo(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        const parsed = JSON.parse(raw) as {
-          answers?: Record<string, string>;
-          submissionId?: string;
-          sectionIndex?: number;
-        };
-        return parsed;
-      }
-    } catch {
-      /* ignore corrupt data */
-    }
-    return null;
-  }, [storageKey]);
-
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(
-    savedDraft?.sectionIndex ?? 0,
-  );
-  const [answers, setAnswers] = useState<Record<string, string>>(
-    savedDraft?.answers ?? {},
-  );
-  const [submissionId, setSubmissionId] = useState<string | null>(
-    savedDraft?.submissionId ?? null,
-  );
+  const setStep = useCallback((next: Step) => {
+    setStepRaw((prev) => {
+      const prevOrder = stepOrder(prev);
+      const nextOrder = stepOrder(next);
+      navDirectionRef.current = nextOrder >= prevOrder ? "fwd" : "back";
+      return next;
+    });
+  }, []);
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
   const [consentGiven, setConsentGiven] = useState(false);
-  const [showEmailForm, setShowEmailForm] = useState(false);
-  const [showInstantResults, setShowInstantResults] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
   const [incompleteDialogOpen, setIncompleteDialogOpen] = useState(false);
 
-  // Persist draft to localStorage whenever answers, submissionId or section changes
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          answers,
-          submissionId,
-          sectionIndex: currentSectionIndex,
-        }),
-      );
-    } catch {
-      /* storage full / unavailable – silently ignore */
-    }
-  }, [answers, submissionId, currentSectionIndex, storageKey]);
-
-  // Clear localStorage after successful submission
-  const clearDraft = useCallback(() => {
-    try {
-      localStorage.removeItem(storageKey);
-    } catch {
-      /* ignore */
-    }
-  }, [storageKey]);
-
-  // Offline status
   const [online, setOnline] = useState(isOnline());
-  const [pendingOps, setPendingOps] = useState(getQueueLength());
   const [syncing, setSyncing] = useState(false);
-  const [hasAppliedPrefill, setHasAppliedPrefill] = useState(false);
 
   const skipEmailStep = useMemo(() => {
-    const value = (searchParams.get("skipEmailStep") || "").toLowerCase();
-    return value === "1" || value === "true" || value === "yes";
-  }, [searchParams]);
-
-  const prefilledMode = useMemo(() => {
-    const value = (searchParams.get("prefilled") || "").toLowerCase();
-    return value === "1" || value === "true" || value === "yes";
+    const v = (searchParams.get("skipEmailStep") || "").toLowerCase();
+    return v === "1" || v === "true" || v === "yes";
   }, [searchParams]);
 
   useEffect(() => {
     return onConnectivityChange((status) => {
       setOnline(status);
-      if (status) {
-        // Auto-sync when coming back online
-        syncQueue();
-      }
+      if (status) syncQueue();
     });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const syncQueue = useCallback(async () => {
     if (syncing) return;
     setSyncing(true);
-    try {
-      await processQueue();
-    } finally {
-      setPendingOps(getQueueLength());
-      setSyncing(false);
-    }
+    try { await processQueue(); } finally { setSyncing(false); }
   }, [syncing]);
 
-  // Fetch questionnaire (with offline cache fallback)
-  const {
-    data: fetchedQuestionnaire,
-    isLoading,
-    error,
-  } = useQuery<Questionnaire>({
+  // Fetch questionnaire
+  const { data: fetchedQuestionnaire, isLoading } = useQuery<Questionnaire>({
     queryKey: ["questionnaire", tenantSlug, questionnaireSlug],
     queryFn: async () => {
-      const { data } = await api.get(
-        `/public/${tenantSlug}/${questionnaireSlug}`,
-      );
-      // Cache for offline use
-      if (tenantSlug && questionnaireSlug) {
-        cacheQuestionnaire(tenantSlug, questionnaireSlug, data);
-      }
+      const { data } = await api.get(`/public/${tenantSlug}/${questionnaireSlug}`);
+      if (tenantSlug && questionnaireSlug) cacheQuestionnaire(tenantSlug, questionnaireSlug, data);
       return data;
     },
     retry: 1,
   });
 
-  // Fall back to cached questionnaire if fetch failed
   const cachedData = useMemo(() => {
     if (fetchedQuestionnaire) return null;
     if (!tenantSlug || !questionnaireSlug) return null;
@@ -262,430 +222,285 @@ export function QuestionnairePage() {
   }, [fetchedQuestionnaire, tenantSlug, questionnaireSlug]);
 
   const questionnaire = fetchedQuestionnaire ?? cachedData?.data ?? null;
-  const isOfflineMode = !fetchedQuestionnaire && !!cachedData;
 
-  // Apply whitelabel theming
+  // Branding
   useEffect(() => {
-    if (questionnaire?.tenant) {
-      const { primaryColor, secondaryColor, faviconUrl } = questionnaire.tenant;
-      if (primaryColor) {
-        const hsl = hexToHSL(primaryColor);
-        document.documentElement.style.setProperty("--primary", hsl);
-        document.documentElement.style.setProperty("--ring", hsl);
-        // Set foreground color based on contrast
-        const fg = isLightColor(primaryColor) ? "222 47% 11%" : "210 40% 98%";
-        document.documentElement.style.setProperty("--primary-foreground", fg);
-      }
-      if (secondaryColor) {
-        const hsl = hexToHSL(secondaryColor);
-        document.documentElement.style.setProperty("--accent", hsl);
-      }
-      // Apply favicon
-      if (faviconUrl) {
-        let link = document.querySelector(
-          "link[rel~='icon']",
-        ) as HTMLLinkElement | null;
-        if (!link) {
-          link = document.createElement("link");
-          link.rel = "icon";
-          document.head.appendChild(link);
-        }
-        link.href = faviconUrl;
-      }
-      document.title = `${questionnaire.title} - ${questionnaire.tenant.name}`;
+    if (!questionnaire?.tenant) return;
+    const { primaryColor, secondaryColor, faviconUrl } = questionnaire.tenant;
+    if (primaryColor) {
+      const hsl = hexToHSL(primaryColor);
+      document.documentElement.style.setProperty("--primary", hsl);
+      document.documentElement.style.setProperty("--ring", hsl);
+      const fg = isLightColor(primaryColor) ? "222 47% 11%" : "210 40% 98%";
+      document.documentElement.style.setProperty("--primary-foreground", fg);
     }
+    if (secondaryColor) {
+      document.documentElement.style.setProperty("--accent", hexToHSL(secondaryColor));
+    }
+    if (faviconUrl) {
+      let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
+      if (!link) { link = document.createElement("link"); link.rel = "icon"; document.head.appendChild(link); }
+      link.href = faviconUrl.startsWith("/api/") ? `${apiBase}${faviconUrl}` : faviconUrl;
+    }
+    document.title = `${questionnaire.title} - ${questionnaire.tenant.name}`;
   }, [questionnaire]);
 
-  // Start submission (or reuse existing one from localStorage)
+  // Confetti on completion
+  const confettiFiredRef = useRef(false);
+  useEffect(() => {
+    if ((step.type === "email-sent" || step.type === "results") && questionnaire?.showConfetti && !confettiFiredRef.current) {
+      confettiFiredRef.current = true;
+      const end = Date.now() + 2500;
+      const frame = () => {
+        confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 } });
+        confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 } });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      };
+      frame();
+    }
+  }, [step.type, questionnaire?.showConfetti]);
+
+  // Start submission
   const startMutation = useMutation({
     mutationFn: async (questionnaireId: string) => {
-      const { data } = await api.post("/submissions/start", {
-        questionnaireId,
-      });
+      const { data } = await api.post("/submissions/start", { questionnaireId });
       return data;
     },
     onSuccess: (data) => setSubmissionId(data.id),
     onError: () => {
-      // Offline: create a temporary local submission ID
       if (questionnaire && !submissionId) {
         const tempId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         setSubmissionId(tempId);
-        enqueue({
-          type: "start_submission",
-          payload: { questionnaireId: questionnaire.id, tempId },
-        });
-        setPendingOps(getQueueLength());
+        enqueue({ type: "start_submission", payload: { questionnaireId: questionnaire.id, tempId } });
       }
     },
   });
 
+  const didStartRef = useRef(false);
   useEffect(() => {
-    if (questionnaire && !submissionId && (!skipEmailStep || prefilledMode)) {
+    if (questionnaire && !submissionId && !skipEmailStep && !didStartRef.current) {
+      didStartRef.current = true;
       startMutation.mutate(questionnaire.id);
     }
-  }, [
-    questionnaire,
-    submissionId,
-    skipEmailStep,
-    prefilledMode,
-    startMutation,
-  ]);
+  }, [questionnaire, submissionId, skipEmailStep]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Testing helper: prefill all answers and jump to the last section.
-  const [hasPersistedPrefill, setHasPersistedPrefill] = useState(false);
-
-  useEffect(() => {
-    if (!questionnaire || !prefilledMode || hasAppliedPrefill) return;
-
-    const nextAnswers: Record<string, string> = {};
-    for (const section of questionnaire.sections) {
-      for (const question of section.questions) {
-        if (question.options.length > 0) {
-          const randomIndex = Math.floor(
-            Math.random() * question.options.length,
-          );
-          const randomOption = question.options[randomIndex];
-          nextAnswers[question.id] = randomOption.id;
-        }
-      }
-    }
-
-    setAnswers(nextAnswers);
-    setCurrentSectionIndex(Math.max(0, questionnaire.sections.length - 1));
-    setHasAppliedPrefill(true);
-  }, [questionnaire, prefilledMode, hasAppliedPrefill]);
-
-  // Persist prefilled answers to the database once submission is available
-  useEffect(() => {
-    if (!prefilledMode || !hasAppliedPrefill || hasPersistedPrefill) return;
-    if (!submissionId || submissionId.startsWith("local-")) return;
-
-    const entries = Object.entries(answers);
-    if (entries.length === 0) return;
-
-    setHasPersistedPrefill(true);
-
-    (async () => {
-      for (const [questionId, selectedOptionId] of entries) {
-        try {
-          await api.post(`/submissions/${submissionId}/answers`, {
-            questionId,
-            selectedOptionId,
-          });
-        } catch {
-          /* best-effort — individual failures are non-critical */
-        }
-      }
-    })();
-  }, [
-    prefilledMode,
-    hasAppliedPrefill,
-    hasPersistedPrefill,
-    submissionId,
-    answers,
-  ]);
-
-  // Save answer (with offline queue fallback)
+  // Save answer
   const saveAnswerMutation = useMutation({
-    mutationFn: async ({
-      questionId,
-      selectedOptionId,
-    }: {
-      questionId: string;
-      selectedOptionId: string;
-    }) => {
-      if (skipEmailStep) return;
-      if (!submissionId) return;
-      // Don't try API for local submissions – queue directly
-      if (submissionId.startsWith("local-")) {
-        throw new Error("offline");
-      }
-      await api.post(`/submissions/${submissionId}/answers`, {
-        questionId,
-        selectedOptionId,
-      });
+    mutationFn: async ({ questionId, selectedOptionId }: { questionId: string; selectedOptionId: string }) => {
+      if (skipEmailStep || !submissionId) return;
+      if (submissionId.startsWith("local-")) throw new Error("offline");
+      await api.post(`/submissions/${submissionId}/answers`, { questionId, selectedOptionId });
     },
     onError: (_err, variables) => {
-      if (skipEmailStep) return;
-      // Queue for later sync
-      if (submissionId) {
-        enqueue({
-          type: "save_answer",
-          payload: {
-            submissionId,
-            questionId: variables.questionId,
-            selectedOptionId: variables.selectedOptionId,
-          },
-        });
-        setPendingOps(getQueueLength());
-      }
+      if (skipEmailStep || !submissionId) return;
+      enqueue({ type: "save_answer", payload: { submissionId, questionId: variables.questionId, selectedOptionId: variables.selectedOptionId } });
     },
   });
-
-  // When a saved submission is restored and we get a new submissionId,
-  // replay all cached answers to the backend so the server is in sync
-  const [hasReplayedAnswers, setHasReplayedAnswers] = useState(false);
-  useEffect(() => {
-    if (!submissionId || hasReplayedAnswers) return;
-    const savedAnswers = savedDraft?.answers;
-    if (!savedAnswers || Object.keys(savedAnswers).length === 0) {
-      setHasReplayedAnswers(true);
-      return;
-    }
-    // If the submissionId changed (new submission), replay all answers
-    if (savedDraft?.submissionId && savedDraft.submissionId === submissionId) {
-      // Same submission – server already has the answers
-      setHasReplayedAnswers(true);
-      return;
-    }
-    // Different or new submission – replay saved answers (skip if offline local ID)
-    if (!submissionId.startsWith("local-")) {
-      for (const [questionId, selectedOptionId] of Object.entries(
-        savedAnswers,
-      )) {
-        saveAnswerMutation.mutate({ questionId, selectedOptionId });
-      }
-    }
-    setHasReplayedAnswers(true);
-  }, [submissionId]);
 
   const handleAnswerSelect = useCallback(
     (questionId: string, optionId: string) => {
-      // Always save locally first (localStorage persisted via the useEffect above)
       setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
-      // Then attempt API save (will queue on failure), unless skipEmailStep mode is active.
-      if (!skipEmailStep) {
-        saveAnswerMutation.mutate({ questionId, selectedOptionId: optionId });
-      }
+      if (!skipEmailStep) saveAnswerMutation.mutate({ questionId, selectedOptionId: optionId });
     },
     [skipEmailStep, saveAnswerMutation],
   );
 
-  // Submit email (handles stale / already-finalized submissions automatically)
+  // Email submit
   const emailMutation = useMutation({
     mutationFn: async () => {
       let sid = submissionId;
-
       if (!sid || sid.startsWith("local-")) {
-        // No valid submission yet – create one
         if (!questionnaire) throw new Error("Vragenlijst niet geladen.");
-        const { data } = await api.post("/submissions/start", {
-          questionnaireId: questionnaire.id,
-        });
+        const { data } = await api.post("/submissions/start", { questionnaireId: questionnaire.id });
         sid = data.id;
         setSubmissionId(sid);
-        // Replay all local answers to the new submission
-        for (const [questionId, selectedOptionId] of Object.entries(answers)) {
-          await api.post(`/submissions/${sid}/answers`, {
-            questionId,
-            selectedOptionId,
-          });
-        }
       }
-
+      // Sync all answers to ensure none are lost (idempotent upsert)
+      for (const [qId, oId] of Object.entries(answers)) {
+        await api.post(`/submissions/${sid}/answers`, { questionId: qId, selectedOptionId: oId });
+      }
       try {
-        await api.post(`/submissions/${sid}/email`, {
-          email,
-          consentGiven: true,
-        });
+        await api.post(`/submissions/${sid}/email`, { email, consentGiven: true });
       } catch (err: any) {
-        const errMsg: string = err?.response?.data?.message || "";
-        // If the old submission is no longer usable, create a fresh one and retry.
-        const shouldRecreateSubmission =
-          errMsg.toLowerCase().includes("already finalized") ||
-          errMsg.toLowerCase().includes("already consumed") ||
-          errMsg.toLowerCase().includes("submission not found");
-
-        if (shouldRecreateSubmission) {
+        const msg: string = err?.response?.data?.message || "";
+        if (msg.toLowerCase().includes("already finalized") || msg.toLowerCase().includes("submission not found")) {
           if (!questionnaire) throw new Error("Vragenlijst niet geladen.");
-          const { data } = await api.post("/submissions/start", {
-            questionnaireId: questionnaire.id,
-          });
+          const { data } = await api.post("/submissions/start", { questionnaireId: questionnaire.id });
           sid = data.id;
           setSubmissionId(sid);
-          // Replay all local answers to the new submission
-          for (const [questionId, selectedOptionId] of Object.entries(
-            answers,
-          )) {
-            await api.post(`/submissions/${sid}/answers`, {
-              questionId,
-              selectedOptionId,
-            });
+          for (const [qId, oId] of Object.entries(answers)) {
+            await api.post(`/submissions/${sid}/answers`, { questionId: qId, selectedOptionId: oId });
           }
-          await api.post(`/submissions/${sid}/email`, {
-            email,
-            consentGiven: true,
-          });
-        } else {
-          throw err;
-        }
+          await api.post(`/submissions/${sid}/email`, { email, consentGiven: true });
+        } else throw err;
       }
     },
-    onSuccess: () => {
-      setEmailSent(true);
-      clearDraft();
-    },
+    onSuccess: () => { setStep({ type: "email-sent" }); },
     onError: (error: Error) => {
-      const msg =
-        (error as any)?.response?.data?.message ||
-        error.message ||
-        "Er is een fout opgetreden bij het verzenden.";
-      setEmailError(msg);
+      setEmailError((error as any)?.response?.data?.message || error.message || "Er is een fout opgetreden.");
     },
   });
 
   const handleEmailSubmit = useCallback(() => {
     const result = emailSubmissionSchema.safeParse({ email });
-    if (!result.success) {
-      setEmailError(result.error.errors[0].message);
-      return;
-    }
+    if (!result.success) { setEmailError(result.error.errors[0].message); return; }
     setEmailError("");
     emailMutation.mutate();
   }, [email, emailMutation]);
 
-  const handleDownloadPdf = useCallback(() => {
+  const handleDownloadPdf = useCallback(async () => {
     if (!questionnaire) return;
-    const pdfData: PdfData = {
-      questionnaireTitle: questionnaire.title,
-      tenantName: questionnaire.tenant.name,
-      respondentEmail: null,
-      submittedAt: null,
-      sections: questionnaire.sections.map((section) => ({
-        code: section.code,
-        title: section.title,
-        questions: section.questions.map((q) => {
-          const selectedOpt = q.options.find((o) => o.id === answers[q.id]);
-          return {
-            code: q.code,
-            prompt: q.prompt,
-            selectedOption: selectedOpt
-              ? {
-                  label: selectedOpt.label,
-                  groupLabel: selectedOpt.groupLabel,
-                  isAllowed: selectedOpt.isAllowed ?? null,
-                }
-              : null,
-            allowedOptions: q.options
-              .filter((o) => o.isAllowed === true)
-              .map((o) => o.label),
-          };
-        }),
-      })),
-    };
-    const doc = generateSubmissionPdf(pdfData);
-    doc.save(buildPdfFilename(questionnaire.title));
+    try {
+      const pdfData: PdfData = {
+        questionnaireTitle: questionnaire.title,
+        tenantName: questionnaire.tenant.name,
+        respondentEmail: null,
+        submittedAt: null,
+        logoUrl: questionnaire.tenant.logoUrl,
+        sections: questionnaire.sections.map((section) => ({
+          code: section.code,
+          title: section.title,
+          questions: section.questions.map((q) => {
+            const sel = q.options.find((o) => o.id === answers[q.id]);
+            return {
+              code: q.code, prompt: q.prompt,
+              selectedOption: sel ? { label: sel.label, groupLabel: sel.groupLabel, isAllowed: sel.isAllowed ?? null } : null,
+              allowedOptions: q.options.filter((o) => o.isAllowed === true).map((o) => o.label),
+            };
+          }),
+        })),
+      };
+      const doc = await generateSubmissionPdf(pdfData);
+      doc.save(buildPdfFilename(questionnaire.title));
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+    }
   }, [questionnaire, answers]);
 
-  const sectionRef = useRef<HTMLDivElement>(null);
-
-  const scrollToSection = useCallback(() => {
-    sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const handleRestart = useCallback(() => {
+    setAnswers({});
+    setSubmissionId(null);
+    didStartRef.current = false;
+    setStep({ type: "intro" });
+    setEmail("");
+    setEmailError("");
+    setConsentGiven(false);
+    setIncompleteDialogOpen(false);
   }, []);
 
-  const currentSection = questionnaire?.sections[currentSectionIndex];
-  const totalSections = questionnaire?.sections.length || 0;
-  const totalQuestions =
-    questionnaire?.sections.reduce((sum, s) => sum + s.questions.length, 0) ||
-    0;
+  // ─── Derived data ───────────────────────────────────────
+  const totalQuestions = questionnaire?.sections.reduce((s, sec) => s + sec.questions.length, 0) || 0;
   const answeredCount = Object.keys(answers).length;
-  const allAnswered = answeredCount >= totalQuestions;
 
   const unansweredBySection = useMemo(() => {
     if (!questionnaire) return [];
     return questionnaire.sections
-      .map((section) => {
-        const missing = section.questions.filter((q) => !answers[q.id]);
-        if (missing.length === 0) return null;
-        return { section, questions: missing };
-      })
-      .filter(Boolean) as { section: Section; questions: Question[] }[];
+      .map((sec) => ({ section: sec, questions: sec.questions.filter((q) => !answers[q.id]) }))
+      .filter((s) => s.questions.length > 0);
   }, [questionnaire, answers]);
 
-  const handleFinish = useCallback(() => {
-    if (allAnswered) {
-      if (skipEmailStep) {
-        setShowInstantResults(true);
-      } else {
-        setShowEmailForm(true);
-      }
+  const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, "");
+  const resolveImageUrl = useCallback((url: string | null | undefined) => {
+    if (!url) return undefined;
+    return url.startsWith("/api/") ? `${apiBase}${url}` : url;
+  }, [apiBase]);
+
+  const pageBackground: React.CSSProperties = questionnaire?.tenant?.secondaryColor
+    ? { backgroundColor: questionnaire.tenant.secondaryColor }
+    : {};
+
+  // ─── Navigation helpers ─────────────────────────────────
+
+  function advanceAfterAnswer(sectionIndex: number, questionIndex: number) {
+    if (!questionnaire) return;
+    const section = questionnaire.sections[sectionIndex];
+    if (questionIndex < section.questions.length - 1) {
+      setStep({ type: "question", sectionIndex, questionIndex: questionIndex + 1 });
+    } else if (sectionIndex < questionnaire.sections.length - 1) {
+      setStep({ type: "section-intro", sectionIndex: sectionIndex + 1 });
+    } else {
+      finishQuestionnaire();
+    }
+  }
+
+  function goToNextQuestion(sectionIndex: number, questionIndex: number) {
+    advanceAfterAnswer(sectionIndex, questionIndex);
+  }
+
+  function goToPreviousQuestion(sectionIndex: number, questionIndex: number) {
+    if (questionIndex > 0) {
+      setStep({ type: "question", sectionIndex, questionIndex: questionIndex - 1 });
+    } else {
+      setStep({ type: "section-intro", sectionIndex });
+    }
+  }
+
+  function finishQuestionnaire() {
+    if (skipEmailStep) {
+      setStep({ type: "results" });
+    } else if (answeredCount >= totalQuestions) {
+      setStep({ type: "email" });
     } else {
       setIncompleteDialogOpen(true);
     }
-  }, [allAnswered, skipEmailStep]);
+  }
 
-  const { data: previewData, isFetching: isLoadingPreview } =
-    useQuery<PdfPreviewResponse>({
-      queryKey: ["pdf-preview-data", questionnaire?.id, answers],
-      queryFn: async () => {
-        const { data } = await api.post(
-          `/questionnaires/${questionnaire!.id}/pdf-preview-data`,
-          {
-            answers,
-          },
-        );
-        return data;
-      },
-      enabled: skipEmailStep && showInstantResults && !!questionnaire?.id,
-    });
+  // ─── Button color styles ────────────────────────────────
+  const t = questionnaire?.tenant;
 
-  const handleRestartQuestionnaire = useCallback(() => {
-    setAnswers({});
-    setSubmissionId(null);
-    setHasReplayedAnswers(false);
-    setHasAppliedPrefill(false);
-    setHasPersistedPrefill(false);
-    setCurrentSectionIndex(0);
-    setShowEmailForm(false);
-    setShowInstantResults(false);
-    setIncompleteDialogOpen(false);
-    setEmailSent(false);
-    setEmail("");
-    setEmailError("");
-    setConsentGiven(false);
-    clearDraft();
-  }, [clearDraft]);
+  const startBtnStyle: React.CSSProperties | undefined = t?.startButtonColor
+    ? { backgroundColor: t.startButtonColor, borderColor: t.startButtonColor, color: isLightColor(t.startButtonColor) ? "#1e293b" : "#ffffff" }
+    : undefined;
 
-  // Compute page background from branding
-  const pageBackground: React.CSSProperties = questionnaire?.tenant
-    ?.secondaryColor
-    ? { backgroundColor: questionnaire.tenant.secondaryColor }
-    : {};
+  const prevBtnStyle: React.CSSProperties | undefined = t?.previousButtonColor
+    ? { backgroundColor: t.previousButtonColor, borderColor: t.previousButtonColor, color: isLightColor(t.previousButtonColor) ? "#1e293b" : "#ffffff" }
+    : undefined;
+
+  const nextQBtnColor = t?.nextQuestionButtonColor || t?.startButtonColor || null;
+  const nextQBtnStyle: React.CSSProperties | undefined = nextQBtnColor
+    ? { backgroundColor: nextQBtnColor, borderColor: nextQBtnColor, color: isLightColor(nextQBtnColor) ? "#1e293b" : "#ffffff" }
+    : undefined;
+
+  const prevQBtnColor = t?.prevQuestionButtonColor || t?.previousButtonColor || null;
+  const prevQBtnStyle: React.CSSProperties | undefined = prevQBtnColor
+    ? { backgroundColor: prevQBtnColor, borderColor: prevQBtnColor, color: isLightColor(prevQBtnColor) ? "#1e293b" : "#ffffff" }
+    : undefined;
+
+  const stepNavStyle: React.CSSProperties = {
+    backgroundColor: t?.stepNavBgColor || undefined,
+    color: t?.stepNavTextColor || undefined,
+  };
+
+  const progressBarAreaStyle: React.CSSProperties = {
+    backgroundColor: t?.progressBarBgColor || undefined,
+    color: t?.progressBarTextColor || undefined,
+  };
+
+  const questionContainerStyle: React.CSSProperties = {
+    backgroundColor: t?.questionContainerBgColor || undefined,
+  };
+
+  // ─── Render ─────────────────────────────────────────────
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-muted/50">
         <div className="border-b bg-background">
-          <div className="mx-auto max-w-5xl flex items-center gap-3 p-4">
-            <Skeleton className="h-8 w-8 rounded" />
+          <div className="mx-auto max-w-3xl flex items-center gap-3 p-4">
+            <Skeleton className="h-8 w-8" />
             <Skeleton className="h-6 w-32" />
           </div>
         </div>
-        <div className="mx-auto max-w-5xl p-4 pt-8 space-y-6">
-          <div className="space-y-2">
-            <Skeleton className="h-8 w-64" />
-            <Skeleton className="h-4 w-full max-w-md" />
-          </div>
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-4 w-full mt-2" />
-            </CardHeader>
-            <CardContent className="space-y-8">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-2/3" />
-              <Skeleton className="h-10 w-full" />
-            </CardContent>
-          </Card>
+        <div className="mx-auto max-w-3xl p-4 pt-8 space-y-6">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-full max-w-md" />
+          <Skeleton className="h-[300px] w-full" />
         </div>
       </div>
     );
   }
 
-  if (!isLoading && !questionnaire) {
+  if (!questionnaire) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-md text-center">
@@ -694,19 +509,13 @@ export function QuestionnairePage() {
               <>
                 <WifiOff className="mx-auto h-12 w-12 text-muted-foreground" />
                 <CardTitle>Geen internetverbinding</CardTitle>
-                <CardDescription>
-                  U bent offline en deze vragenlijst is nog niet eerder geladen.
-                  Maak verbinding met internet en probeer opnieuw.
-                </CardDescription>
+                <CardDescription>U bent offline en deze vragenlijst is nog niet eerder geladen.</CardDescription>
               </>
             ) : (
               <>
                 <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
                 <CardTitle>Vragenlijst niet gevonden</CardTitle>
-                <CardDescription>
-                  De vragenlijst is niet gevonden of is niet gepubliceerd.
-                  Controleer de URL en probeer opnieuw.
-                </CardDescription>
+                <CardDescription>De vragenlijst is niet gevonden of is niet gepubliceerd.</CardDescription>
               </>
             )}
           </CardHeader>
@@ -715,193 +524,87 @@ export function QuestionnairePage() {
     );
   }
 
-  if (emailSent) {
+  // ─── STEP: email-sent ───────────────────────────────────
+  if (step.type === "email-sent") {
+    const completionImg = questionnaire.completionImageUrl
+      ? questionnaire.completionImageUrl.startsWith("/api/") ? `${apiBase}${questionnaire.completionImageUrl}` : questionnaire.completionImageUrl
+      : null;
     return (
-      <div
-        className="min-h-screen flex items-center justify-center bg-muted/50 p-4"
-        style={pageBackground}
-      >
-        <Card className="w-full max-w-md text-center">
-          <CardHeader>
-            <CheckCircle2 className="mx-auto h-12 w-12 text-green-600" />
-            <CardTitle>Verificatie-e-mail verzonden</CardTitle>
-            <CardDescription>
-              We hebben een verificatie-e-mail gestuurd naar{" "}
-              <strong>{email}</strong>. Klik op de link in de e-mail om uw
-              inzending te voltooien.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="min-h-screen bg-muted/50 flex flex-col" style={pageBackground}>
+        <Header tenant={questionnaire.tenant} />
+        <div className="flex-1 flex flex-col items-center pt-8 p-4">
+          <Card className="w-full max-w-md text-center gacs-fade-up">
+            <CardHeader>
+              {completionImg && (
+                <img src={completionImg} alt="" className="mx-auto max-h-48 object-contain mb-4 gacs-fade-in" />
+              )}
+              <CheckCircle2 className="mx-auto h-12 w-12 text-green-600" />
+              <CardTitle>{questionnaire.completionTitle || "Verificatie-e-mail verzonden"}</CardTitle>
+              <CardDescription>
+                {questionnaire.completionDescription || (
+                  <>We hebben een verificatie-e-mail gestuurd naar <strong>{email}</strong>. Klik op de link in de e-mail om uw inzending te voltooien.</>
+                )}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
       </div>
     );
   }
 
-  if (showInstantResults && questionnaire) {
-    const pdfSections: PdfSection[] = questionnaire.sections.map((section) => ({
-      code: section.code,
-      title: section.title,
-      questions: section.questions.map((q) => {
-        const selectedOpt = q.options.find((o) => o.id === answers[q.id]);
+  // ─── STEP: results (skipEmailStep) ──────────────────────
+  if (step.type === "results") {
+    const pdfSections: PdfSection[] = questionnaire.sections.map((sec) => ({
+      code: sec.code,
+      title: sec.title,
+      questions: sec.questions.map((q) => {
+        const sel = q.options.find((o) => o.id === answers[q.id]);
         return {
-          code: q.code,
-          prompt: q.prompt,
-          selectedOption: selectedOpt
-            ? {
-                label: selectedOpt.label,
-                groupLabel: selectedOpt.groupLabel,
-                isAllowed: selectedOpt.isAllowed ?? null,
-              }
-            : null,
-          allowedOptions: q.options
-            .filter((o) => o.isAllowed === true)
-            .map((o) => o.label),
+          code: q.code, prompt: q.prompt,
+          selectedOption: sel ? { label: sel.label, groupLabel: sel.groupLabel, isAllowed: sel.isAllowed ?? null } : null,
+          allowedOptions: q.options.filter((o) => o.isAllowed === true).map((o) => o.label),
         };
       }),
     }));
     const { overall: overallScore, sectionScores } = computeScores(pdfSections);
-    const motivationalMsg = getMotivationalMessage(
-      overallScore,
-      questionnaire.tenant.name,
-    );
-    const scoreColorClass =
-      overallScore >= 80
-        ? "text-green-600"
-        : overallScore >= 50
-          ? "text-amber-600"
-          : "text-red-600";
-    const scoreBgClass =
-      overallScore >= 80
-        ? "bg-green-50 border-green-200 text-green-800"
-        : overallScore >= 50
-          ? "bg-amber-50 border-amber-200 text-amber-800"
-          : "bg-red-50 border-red-200 text-red-800";
+    const motivationalMsg = getMotivationalMessage(overallScore, questionnaire.tenant.name);
+    const scoreColorClass = overallScore >= 80 ? "text-green-600" : overallScore >= 50 ? "text-amber-600" : "text-red-600";
+    const scoreBgClass = overallScore >= 80 ? "bg-green-50 border-green-200 text-green-800" : overallScore >= 50 ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-red-50 border-red-200 text-red-800";
 
     return (
       <div className="min-h-screen bg-muted/50" style={pageBackground}>
         <Header tenant={questionnaire.tenant} />
-        <div className="mx-auto max-w-5xl p-4 pt-8 space-y-6">
-          {/* Score overview */}
-          <Card className="max-w-3xl mx-auto">
+        <div className="mx-auto max-w-3xl p-4 pt-8 space-y-6">
+          <Card>
             <CardHeader className="text-center pb-2">
-              <p className={`text-5xl font-bold ${scoreColorClass}`}>
-                {overallScore}%
-              </p>
+              <p className={`text-5xl font-bold ${scoreColorClass}`}>{overallScore}%</p>
               <CardTitle className="text-lg">Compliance Score</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className={`rounded-md border p-3 text-sm ${scoreBgClass}`}>
-                {motivationalMsg}
-              </div>
-
-              {/* Section scores */}
+              <div className={`border p-3 text-sm ${scoreBgClass}`}>{motivationalMsg}</div>
               <div className="space-y-2">
-                <h4 className="text-sm font-semibold">Score per sectie</h4>
+                <h4 className="text-sm font-semibold">Score per hoofdstuk</h4>
                 {sectionScores.map((sec) => {
-                  const barColor =
-                    sec.percentage >= 80
-                      ? "bg-green-500"
-                      : sec.percentage >= 50
-                        ? "bg-amber-500"
-                        : "bg-red-500";
-                  const label = sec.code
-                    ? `${sec.code}. ${sec.title}`
-                    : sec.title;
+                  const barColor = sec.percentage >= 80 ? "bg-green-500" : sec.percentage >= 50 ? "bg-amber-500" : "bg-red-500";
+                  const label = sec.code ? `${sec.code}. ${sec.title}` : sec.title;
                   return (
                     <div key={label} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground truncate mr-2">
-                          {label}
-                        </span>
-                        <span className="font-semibold shrink-0">
-                          {sec.percentage}%
-                        </span>
+                        <span className="text-muted-foreground truncate mr-2">{label}</span>
+                        <span className="font-semibold shrink-0">{sec.percentage}%</span>
                       </div>
-                      <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${barColor}`}
-                          style={{ width: `${sec.percentage}%` }}
-                        />
+                      <div className="h-2 bg-muted overflow-hidden">
+                        <div className={`h-full ${barColor}`} style={{ width: `${sec.percentage}%` }} />
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Action items */}
-          <Card className="max-w-3xl mx-auto">
-            <CardHeader>
-              <CardTitle>Actiepunten - Niet-toegestane antwoorden</CardTitle>
-              <CardDescription>
-                De volgende antwoorden zijn niet toegestaan en moeten worden
-                aangepast.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {isLoadingPreview ? (
-                <div className="rounded-md border p-4 text-muted-foreground">
-                  Resultaten laden...
-                </div>
-              ) : (previewData?.results.notAllowedItems.length ?? 0) === 0 ? (
-                <div className="rounded-md border border-green-200 bg-green-50 p-4 text-green-800">
-                  Geen directe verbeterpunten gevonden op basis van de huidige
-                  antwoorden.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Verbeterpunten gevonden:{" "}
-                    <strong>
-                      {previewData?.results.notAllowedItems.length ?? 0}
-                    </strong>
-                  </p>
-                  {previewData?.results.notAllowedItems.map((item, index) => (
-                    <div
-                      key={`${item.sectionTitle}-${index}`}
-                      className="rounded-md border p-3"
-                    >
-                      <p className="text-sm font-semibold">
-                        {item.questionCode
-                          ? `${index + 1}. ${item.questionCode} - ${item.questionPrompt}`
-                          : `${index + 1}. ${item.questionPrompt}`}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Sectie:{" "}
-                        {item.sectionCode ? `${item.sectionCode}. ` : ""}
-                        {item.sectionTitle}
-                      </p>
-                      <p className="text-xs mt-2 text-red-700">
-                        Huidig antwoord: {item.selectedLabel}
-                      </p>
-                      {item.allowedOptions.length > 0 && (
-                        <div className="mt-2">
-                          <p className="text-xs font-medium text-green-700">
-                            Toegestane alternatieven:
-                          </p>
-                          <ul className="mt-1 list-disc pl-5 text-xs text-green-700">
-                            {item.allowedOptions.map((option) => (
-                              <li key={option}>{option}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={handleDownloadPdf}
-                  className="flex-1"
-                >
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={handleDownloadPdf} className="flex-1">
                   <Download className="h-4 w-4" /> Download PDF
                 </Button>
-                <Button onClick={handleRestartQuestionnaire} className="flex-1">
-                  Restart
-                </Button>
+                <Button onClick={handleRestart} className="flex-1">Opnieuw starten</Button>
               </div>
             </CardContent>
           </Card>
@@ -910,557 +613,609 @@ export function QuestionnairePage() {
     );
   }
 
-  if (showEmailForm) {
+  // ─── STEP: intro ────────────────────────────────────────
+  if (step.type === "intro") {
     return (
-      <div className="min-h-screen bg-muted/50" style={pageBackground}>
+      <div className="min-h-screen bg-muted/50 flex flex-col" style={pageBackground}>
         <Header tenant={questionnaire.tenant} />
-        <div className="mx-auto max-w-5xl p-4 pt-8">
-          <Card className="max-w-2xl mx-auto">
+        <div className="flex-1 flex flex-col items-center pt-8 p-4">
+          <div className="w-full max-w-2xl gacs-fade-up">
+          <Card className="w-full text-center">
+            {questionnaire.introImageUrl && (
+              <div className="overflow-hidden flex justify-center gacs-fade-in">
+                <img
+                  src={resolveImageUrl(questionnaire.introImageUrl)}
+                  alt=""
+                  className="max-h-96 object-contain"
+                  style={{ width: `${questionnaire.introImageScale ?? 100}%` }}
+                />
+              </div>
+            )}
+            <CardHeader className="pt-8 pb-2">
+              <CardTitle className="text-2xl gacs-fade-in" style={{ animationDelay: "0.1s" }}>
+                {questionnaire.introTitle || questionnaire.title}
+              </CardTitle>
+              <CardDescription className="text-base mt-2 whitespace-pre-line gacs-fade-in" style={{ animationDelay: "0.15s" }}>
+                {questionnaire.introDescription || questionnaire.description || `Welkom bij de ${questionnaire.title}. Beantwoord de vragen per hoofdstuk om te controleren hoe ver u bent.`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 pb-8">
+              <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <ClipboardCheck className="h-4 w-4" />
+                  {questionnaire.sections.length} hoofdstukken
+                </span>
+                <span className="flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  {totalQuestions} vragen
+                </span>
+                {questionnaire.estimatedMinutes && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    ~{questionnaire.estimatedMinutes} min
+                  </span>
+                )}
+              </div>
+
+              {skipEmailStep && (
+                <Badge variant="secondary" className="text-xs">Direct result mode</Badge>
+              )}
+
+              <Button
+                size="lg"
+                className="text-lg px-10"
+                style={startBtnStyle}
+                onClick={() => setStep({ type: "section-intro", sectionIndex: 0 })}
+              >
+                Start de Check
+                <ChevronRight className="h-5 w-5 gacs-arrow-nudge" />
+              </Button>
+            </CardContent>
+          </Card>
+          </div>
+        </div>
+        <div className="text-center py-4 text-xs text-muted-foreground">
+          &copy; {new Date().getFullYear()} {questionnaire.tenant.name}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── STEP: section-intro ────────────────────────────────
+  if (step.type === "section-intro") {
+    const section = questionnaire.sections[step.sectionIndex];
+    if (!section) { setStep({ type: "intro" }); return null; }
+
+    return (
+      <div className="min-h-screen bg-muted/50 flex flex-col" style={pageBackground}>
+        <Header tenant={questionnaire.tenant} />
+        <StepNav
+          sections={questionnaire.sections}
+          currentSectionIndex={step.sectionIndex}
+          onSelectSection={(idx) => setStep({ type: "section-intro", sectionIndex: idx })}
+          style={stepNavStyle}
+          answers={answers}
+          activeIndicatorColor={t?.activeChapterIndicatorColor}
+        />
+        <div className="flex-1 flex flex-col items-center pt-8 p-4">
+          <AnimatedCard stepKey={`sec-${step.sectionIndex}`} direction={navDirectionRef.current} className="w-full max-w-2xl">
+          <Card className="w-full text-center">
+            {section.imageUrl && (
+              <div className="overflow-hidden flex justify-center gacs-fade-in">
+                <img
+                  src={resolveImageUrl(section.imageUrl)}
+                  alt=""
+                  className="max-h-96 object-contain"
+                  style={{ width: `${section.imageScale ?? 100}%` }}
+                />
+              </div>
+            )}
+            <CardHeader className="pt-8 pb-2">
+              <div className="flex items-center justify-center gap-3 mb-2 gacs-fade-in">
+                <DynamicIcon name={section.icon} className="h-8 w-8 text-primary" />
+              </div>
+              <CardTitle className="text-xl gacs-fade-in" style={{ animationDelay: "0.05s" }}>
+                {section.code && <span className="text-primary mr-1">{section.code}.</span>}
+                {section.title}
+              </CardTitle>
+              {section.description && (
+                <CardDescription className="text-base mt-2 whitespace-pre-line gacs-fade-in" style={{ animationDelay: "0.1s" }}>
+                  {section.description}
+                </CardDescription>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4 pb-8">
+              <p className="text-sm text-muted-foreground">
+                {section.questions.length} {section.questions.length === 1 ? "vraag" : "vragen"} in dit hoofdstuk
+              </p>
+              <div className="flex gap-3 justify-center">
+                <Button
+                  variant="outline"
+                  style={prevBtnStyle}
+                  onClick={() => {
+                    if (step.sectionIndex > 0) {
+                      const prevSection = questionnaire.sections[step.sectionIndex - 1];
+                      setStep({ type: "question", sectionIndex: step.sectionIndex - 1, questionIndex: prevSection.questions.length - 1 });
+                    } else {
+                      setStep({ type: "intro" });
+                    }
+                  }}
+                >
+                  <ChevronLeft className="h-4 w-4" /> Vorige
+                </Button>
+                <Button style={startBtnStyle} onClick={() => setStep({ type: "question", sectionIndex: step.sectionIndex, questionIndex: 0 })}>
+                  Start <ChevronRight className="h-4 w-4 gacs-arrow-nudge" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+          </AnimatedCard>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── STEP: question ─────────────────────────────────────
+  if (step.type === "question") {
+    const section = questionnaire.sections[step.sectionIndex];
+    const question = section?.questions[step.questionIndex];
+    if (!section || !question) { setStep({ type: "intro" }); return null; }
+
+    const sectionQuestionCount = section.questions.length;
+    const sectionAnsweredCount = section.questions.filter((q) => answers[q.id]).length;
+    const sectionProgress = sectionQuestionCount > 0
+      ? Math.round((sectionAnsweredCount / sectionQuestionCount) * 100)
+      : 0;
+
+    const isLastQuestionInSection = step.questionIndex >= section.questions.length - 1;
+    const isLastSection = step.sectionIndex >= questionnaire.sections.length - 1;
+
+    const groupedOptions = (() => {
+      const hasGroups = question.options.some((o) => o.groupLabel);
+      if (!hasGroups) return null;
+      const groups: Record<string, Option[]> = {};
+      for (const opt of question.options) {
+        const g = opt.groupLabel || "Opties";
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(opt);
+      }
+      return groups;
+    })();
+
+    const progressIndicatorStyle: React.CSSProperties = t?.progressBarColor
+      ? { backgroundColor: t.progressBarColor }
+      : {};
+
+    return (
+      <div className="min-h-screen bg-muted/50 flex flex-col" style={pageBackground}>
+        <Header tenant={questionnaire.tenant} />
+        <StepNav
+          sections={questionnaire.sections}
+          currentSectionIndex={step.sectionIndex}
+          onSelectSection={(idx) => setStep({ type: "section-intro", sectionIndex: idx })}
+          style={stepNavStyle}
+          answers={answers}
+          activeIndicatorColor={t?.activeChapterIndicatorColor}
+        />
+
+        <div className="border-b" style={progressBarAreaStyle}>
+          <div className="mx-auto max-w-3xl px-4 py-2">
+            <div className="flex items-center justify-between text-xs mb-1" style={progressBarAreaStyle.color ? { color: progressBarAreaStyle.color } : undefined}>
+              <span>Vraag {step.questionIndex + 1} van {sectionQuestionCount} van het hoofdstuk</span>
+            </div>
+            <Progress value={sectionProgress} className="h-1.5" indicatorStyle={progressIndicatorStyle} />
+          </div>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center pt-8 p-4">
+          <AnimatedCard stepKey={`q-${step.sectionIndex}-${step.questionIndex}`} direction={navDirectionRef.current} className="w-full max-w-2xl">
+          <Card className="w-full" style={questionContainerStyle}>
+            <CardHeader>
+              <CardTitle className="text-xl">{question.prompt}</CardTitle>
+              {question.helpText && (
+                <div className="mt-2 bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>{question.helpText}</span>
+                </div>
+              )}
+            </CardHeader>
+            {question.imageUrl && (
+              <div className="px-6 pb-2 flex justify-center">
+                <img
+                  src={resolveImageUrl(question.imageUrl)}
+                  alt=""
+                  className="max-h-96 object-contain"
+                  style={{ width: `${question.imageScale ?? 100}%` }}
+                />
+              </div>
+            )}
+            <CardContent className="space-y-2 pb-6">
+              {groupedOptions
+                ? Object.entries(groupedOptions).map(([groupLabel, opts], gi) => (
+                    <div key={groupLabel} className="space-y-2">
+                      <Badge variant={groupLabel === "Niet toegestaan" ? "destructive" : "default"} className="text-xs gacs-fade-up"
+                        style={{ animationDelay: `${gi * 60}ms` }}>
+                        {groupLabel}
+                      </Badge>
+                      {opts.map((option, oi) => (
+                        <OptionButton
+                          key={option.id}
+                          option={option}
+                          selected={answers[question.id] === option.id}
+                          animDelay={(gi * opts.length + oi) * 40 + 60}
+                          onClick={() => {
+                            handleAnswerSelect(question.id, option.id);
+                            setTimeout(() => advanceAfterAnswer(step.sectionIndex, step.questionIndex), 400);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ))
+                : question.options.map((option, oi) => (
+                    <OptionButton
+                      key={option.id}
+                      option={option}
+                      selected={answers[question.id] === option.id}
+                      animDelay={oi * 40 + 60}
+                      onClick={() => {
+                        handleAnswerSelect(question.id, option.id);
+                        setTimeout(() => advanceAfterAnswer(step.sectionIndex, step.questionIndex), 400);
+                      }}
+                    />
+                  ))}
+            </CardContent>
+          </Card>
+          </AnimatedCard>
+
+          {/* Nav buttons outside the card */}
+          <div className="w-full max-w-2xl mt-4 flex items-center justify-between">
+            <Button
+              variant="outline"
+              onClick={() => goToPreviousQuestion(step.sectionIndex, step.questionIndex)}
+              style={prevQBtnStyle}
+            >
+              <ChevronLeft className="h-4 w-4" /> Vorige vraag
+            </Button>
+            <Button
+              onClick={() => {
+                if (isLastQuestionInSection && isLastSection) {
+                  finishQuestionnaire();
+                } else {
+                  goToNextQuestion(step.sectionIndex, step.questionIndex);
+                }
+              }}
+              style={nextQBtnStyle}
+            >
+              {isLastQuestionInSection && isLastSection ? "Afronden" : "Vraag overslaan"} <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── STEP: email ────────────────────────────────────────
+  if (step.type === "email") {
+    const emailPdfSections = questionnaire.sections.map((sec) => ({
+      title: sec.title, code: sec.code,
+      questions: sec.questions.map((q) => {
+        const sel = q.options.find((o) => o.id === answers[q.id]);
+        return {
+          code: q.code, prompt: q.prompt,
+          selectedOption: sel ? { label: sel.label, groupLabel: sel.groupLabel, isAllowed: sel.isAllowed ?? null } : null,
+          allowedOptions: q.options.filter((o) => o.isAllowed === true).map((o) => o.label),
+        };
+      }),
+    }));
+    const { overall: emailOverall, sectionScores: emailSectionScores } = computeScores(emailPdfSections);
+    const gradedSections = emailSectionScores.filter((s) => s.total > 0);
+    const bestSection = gradedSections.length > 0 ? gradedSections.reduce((a, b) => (a.percentage >= b.percentage ? a : b)) : null;
+    const worstSection = gradedSections.length > 0 ? gradedSections.reduce((a, b) => (a.percentage <= b.percentage ? a : b)) : null;
+    const emailScoreColor = emailOverall >= 80 ? "text-green-600" : emailOverall >= 50 ? "text-amber-600" : "text-red-600";
+    const hasGradedQuestions = gradedSections.length > 0;
+
+    return (
+      <div className="min-h-screen bg-muted/50 flex flex-col" style={pageBackground}>
+        <Header tenant={questionnaire.tenant} />
+        <div className="flex-1 flex flex-col items-center pt-8 p-4">
+          <div className="w-full max-w-2xl gacs-fade-up">
+          <Card className="w-full">
             <CardHeader>
               <CardTitle>Bijna klaar!</CardTitle>
               <CardDescription>
-                Voer uw e-mailadres in om uw inzending te voltooien. U ontvangt
-                een verificatie-e-mail. Na verificatie ontvangt u een PDF met al
-                uw ingevulde antwoorden.
+                Voer uw e-mailadres in om uw inzending te voltooien.
+                U ontvangt een verificatie-e-mail met een PDF van uw antwoorden.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {hasGradedQuestions && (
+                <div className="border bg-card p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="h-5 w-5 text-primary" />
+                      <span className="font-semibold text-sm">Uw resultaat</span>
+                    </div>
+                    <span className={`text-2xl font-bold ${emailScoreColor}`}>{emailOverall}%</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {bestSection && (
+                      <div className="bg-green-50 border border-green-200 p-2.5">
+                        <div className="flex items-center gap-1.5 text-green-700 text-xs font-medium mb-0.5">
+                          <TrendingUp className="h-3.5 w-3.5" /> Beste hoofdstuk
+                        </div>
+                        <p className="text-sm font-semibold text-green-800 truncate">{bestSection.title}</p>
+                        <p className="text-xs text-green-600">{bestSection.percentage}%</p>
+                      </div>
+                    )}
+                    {worstSection && (
+                      <div className="bg-red-50 border border-red-200 p-2.5">
+                        <div className="flex items-center gap-1.5 text-red-700 text-xs font-medium mb-0.5">
+                          <TrendingDown className="h-3.5 w-3.5" /> Aandachtspunt
+                        </div>
+                        <p className="text-sm font-semibold text-red-800 truncate">{worstSection.title}</p>
+                        <p className="text-xs text-red-600">{worstSection.percentage}%</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="email">E-mailadres</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="uw@email.nl"
+                  id="email" type="email" placeholder="uw@email.nl"
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (emailError) setEmailError("");
-                  }}
+                  onChange={(e) => { setEmail(e.target.value); if (emailError) setEmailError(""); }}
                   className={emailError ? "border-destructive" : ""}
                 />
-                {emailError && (
-                  <p className="text-xs text-destructive">{emailError}</p>
-                )}
+                {emailError && <p className="text-xs text-destructive">{emailError}</p>}
               </div>
-              <div className="flex items-start space-x-3 rounded-md border p-3">
-                <Checkbox
-                  id="consent"
-                  checked={consentGiven}
-                  onCheckedChange={(checked) =>
-                    setConsentGiven(checked === true)
-                  }
-                />
-                <label
-                  htmlFor="consent"
-                  className="text-xs text-muted-foreground leading-snug cursor-pointer"
-                >
-                  Ik ga akkoord met de verwerking van mijn e-mailadres en
-                  antwoorden door de organisatie die deze vragenlijst heeft
-                  opgesteld, ten behoeve van analyse en rapportage. Mijn
-                  gegevens worden bewaard volgens het retentiebeleid van de
-                  organisatie. Ik heb recht op inzage, rectificatie en
-                  verwijdering van mijn gegevens conform de AVG (GDPR).{" "}
-                  <a
-                    href="/gdpr/erasure"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline text-primary hover:text-primary/80"
-                  >
-                    Verwijderingsverzoek indienen
-                  </a>
+              <div className="flex items-start space-x-3 border p-3">
+                <Checkbox id="consent" checked={consentGiven} onCheckedChange={(c) => setConsentGiven(c === true)} />
+                <label htmlFor="consent" className="text-xs text-muted-foreground leading-snug cursor-pointer">
+                  Ik ga akkoord met de verwerking van mijn e-mailadres en antwoorden door de organisatie die
+                  deze vragenlijst heeft opgesteld. Mijn gegevens worden bewaard conform de AVG (GDPR).
                 </label>
               </div>
               <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowEmailForm(false)}
-                >
+                <Button variant="outline" style={prevBtnStyle} onClick={() => {
+                  const lastSec = questionnaire.sections.length - 1;
+                  const lastQ = questionnaire.sections[lastSec].questions.length - 1;
+                  setStep({ type: "question", sectionIndex: lastSec, questionIndex: lastQ });
+                }}>
                   <ChevronLeft className="h-4 w-4" /> Terug
                 </Button>
-                <Button variant="outline" onClick={handleDownloadPdf}>
-                  <Download className="h-4 w-4" /> Download PDF
-                </Button>
-                <Button
-                  onClick={handleEmailSubmit}
-                  disabled={emailMutation.isPending || !consentGiven}
-                  className="flex-1"
-                >
-                  {emailMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                  Verstuur PDF
+                <Button style={startBtnStyle} onClick={handleEmailSubmit} disabled={emailMutation.isPending || !consentGiven} className="flex-1">
+                  {emailMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Verstuur
                 </Button>
               </div>
               {!online && (
                 <p className="text-xs text-amber-600 flex items-center gap-1">
-                  <WifiOff className="h-3 w-3" />
-                  Verificatie vereist een internetverbinding. Uw antwoorden zijn
-                  lokaal opgeslagen.
+                  <WifiOff className="h-3 w-3" /> Verificatie vereist een internetverbinding.
                 </p>
               )}
             </CardContent>
           </Card>
+          </div>
         </div>
       </div>
     );
   }
 
+  // ─── Incomplete dialog ─────────────────────────────────
   return (
-    <div className="min-h-screen bg-muted/50" style={pageBackground}>
-      <Header tenant={questionnaire.tenant} />
-
-      {/* Offline / sync banner */}
-      {!skipEmailStep && (!online || isOfflineMode) && (
-        <div
-          className={`px-4 py-2 text-sm flex items-center justify-center gap-2 ${online ? "bg-amber-50 text-amber-800" : "bg-gray-100 text-gray-700"}`}
-        >
-          {!online ? (
-            <>
-              <WifiOff className="h-4 w-4" />
-              <span>
-                U bent offline. Uw antwoorden worden lokaal opgeslagen en
-                gesynchroniseerd wanneer u weer online bent.
-                {pendingOps > 0
-                  ? ` (${pendingOps} wijziging(en) in wachtrij)`
-                  : ""}
-              </span>
-            </>
-          ) : isOfflineMode ? (
-            <>
-              <RefreshCw className="h-4 w-4" />
-              <span>
-                Geladen vanuit cache. Sommige gegevens zijn mogelijk niet
-                actueel.
-              </span>
-            </>
-          ) : null}
+    <Dialog open={incompleteDialogOpen} onOpenChange={setIncompleteDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            Niet alle vragen beantwoord
+          </DialogTitle>
+          <DialogDescription>
+            U heeft {answeredCount} van de {totalQuestions} vragen beantwoord.
+            Wilt u toch doorgaan of de ontbrekende vragen beantwoorden?
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 max-h-40 overflow-y-auto">
+          {unansweredBySection.map((s) => (
+            <div key={s.section.id} className="text-sm">
+              <span className="font-medium">{s.section.title}</span>
+              <span className="text-muted-foreground ml-1">({s.questions.length} ontbrekend)</span>
+            </div>
+          ))}
         </div>
-      )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIncompleteDialogOpen(false)}>
+            Terug naar vragen
+          </Button>
+          <Button onClick={() => {
+            setIncompleteDialogOpen(false);
+            if (skipEmailStep) setStep({ type: "results" });
+            else setStep({ type: "email" });
+          }}>
+            Toch doorgaan
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
-      {/* Sticky Stepper */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b">
-        <div className="w-full px-4 py-3">
-          <ScrollArea className="w-full">
-            <nav className="flex min-w-full items-center justify-center gap-0">
-              {questionnaire.sections.map((section, idx) => {
-                const sectionAnswered = section.questions.every(
-                  (q) => answers[q.id],
-                );
-                const isCurrent = idx === currentSectionIndex;
-                return (
-                  <div
-                    key={section.id}
-                    className="flex items-center flex-shrink-0"
-                  >
-                    {idx > 0 && (
-                      <div
-                        className={`w-6 sm:w-10 h-0.5 ${idx <= currentSectionIndex ? "bg-primary" : "bg-muted-foreground/20"}`}
-                      />
-                    )}
-                    <button
-                      onClick={() => {
-                        setCurrentSectionIndex(idx);
-                        setTimeout(scrollToSection, 100);
-                      }}
-                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors text-sm whitespace-nowrap ${
-                        isCurrent
-                          ? "text-primary font-semibold"
-                          : sectionAnswered
-                            ? "text-muted-foreground hover:text-foreground"
-                            : "text-muted-foreground/60 hover:text-muted-foreground"
-                      }`}
-                    >
-                      <span
-                        className={`flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold flex-shrink-0 border-2 transition-colors ${
-                          sectionAnswered
-                            ? "bg-primary border-primary text-primary-foreground"
-                            : isCurrent
-                              ? "border-primary text-primary bg-transparent"
-                              : "border-muted-foreground/30 text-muted-foreground/50 bg-transparent"
-                        }`}
-                      >
-                        {sectionAnswered ? (
-                          <CheckCircle2 className="h-4 w-4" />
-                        ) : (
-                          idx + 1
-                        )}
-                      </span>
-                      <span className="hidden sm:inline">
-                        {section.title.length > 20
-                          ? section.title.substring(0, 20) + "…"
-                          : section.title}
-                      </span>
-                    </button>
-                  </div>
-                );
-              })}
-            </nav>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-        </div>
-      </div>
+// ─── Sub-components ───────────────────────────────────────
 
-      <div className="mx-auto max-w-5xl p-4 pt-8 space-y-6">
-        {/* Title */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold">{questionnaire.title}</h1>
-            {skipEmailStep && (
-              <Badge variant="secondary" className="text-xs">
-                Direct result mode
-              </Badge>
-            )}
-          </div>
-          {questionnaire.description && (
-            <p
-              className="text-muted-foreground"
-              style={
-                questionnaire.tenant.subtextColor
-                  ? { color: questionnaire.tenant.subtextColor }
-                  : undefined
-              }
-            >
-              {questionnaire.description}
-            </p>
+function AnimatedCard({ stepKey, direction, children, className }: { stepKey: string; direction: "fwd" | "back"; children: React.ReactNode; className?: string }) {
+  const [animClass, setAnimClass] = useState("gacs-slide-fwd");
+
+  useEffect(() => {
+    setAnimClass("");
+    const cls = direction === "back" ? "gacs-slide-back" : "gacs-slide-fwd";
+    const frame = requestAnimationFrame(() => setAnimClass(cls));
+    return () => cancelAnimationFrame(frame);
+  }, [stepKey, direction]);
+
+  return (
+    <div className={`${className ?? ""} ${animClass}`}>
+      {children}
+    </div>
+  );
+}
+
+function OptionButton({ option, selected, onClick, animDelay = 0 }: { option: Option; selected: boolean; onClick: () => void; animDelay?: number }) {
+  const [justSelected, setJustSelected] = useState(false);
+
+  function handleClick() {
+    onClick();
+    setJustSelected(true);
+    setTimeout(() => setJustSelected(false), 400);
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`gacs-fade-up w-full text-left border-2 p-4 transition-all duration-200 ${
+        justSelected
+          ? "border-primary bg-primary/10 shadow-md"
+          : selected
+            ? "border-primary bg-primary/5 shadow-sm"
+            : "border-muted hover:border-muted-foreground/30 hover:bg-muted/50"
+      }`}
+      style={{
+        animationDelay: `${animDelay}ms`,
+        transform: justSelected ? "scale(1.02)" : undefined,
+        transition: "border-color 200ms, background-color 200ms, box-shadow 200ms, transform 200ms ease-out",
+      }}
+    >
+      <div className="flex items-center gap-3">
+        <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
+          selected || justSelected ? "border-primary" : "border-muted-foreground/40"
+        }`}>
+          {(selected || justSelected) && (
+            <div className="h-2.5 w-2.5 rounded-full bg-primary transition-transform duration-200"
+              style={{ transform: justSelected ? "scale(1.3)" : "scale(1)" }} />
           )}
         </div>
-
-        {/* Current Section */}
-        {currentSection && (
-          <Card ref={sectionRef}>
-            <CardHeader>
-              <CardTitle className="text-xl">
-                {currentSection.code && (
-                  <span className="text-primary mr-2">
-                    {currentSection.code}.
-                  </span>
-                )}
-                {currentSection.title}
-              </CardTitle>
-              {currentSection.description && (
-                <CardDescription>{currentSection.description}</CardDescription>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-8">
-              {currentSection.questions.map((question) => (
-                <QuestionCard
-                  key={question.id}
-                  question={question}
-                  selectedOptionId={answers[question.id]}
-                  onSelect={(optionId) =>
-                    handleAnswerSelect(question.id, optionId)
-                  }
-                  subtextColor={questionnaire.tenant.subtextColor}
-                />
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Navigation */}
-        <div className="flex justify-between pb-8">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setCurrentSectionIndex((i) => Math.max(0, i - 1));
-              setTimeout(scrollToSection, 100);
-            }}
-            disabled={currentSectionIndex === 0}
-          >
-            <ChevronLeft className="h-4 w-4" /> Vorige
-          </Button>
-
-          <div className="flex gap-2">
-            {currentSectionIndex < totalSections - 1 && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setCurrentSectionIndex((i) =>
-                    Math.min(totalSections - 1, i + 1),
-                  );
-                  setTimeout(scrollToSection, 100);
-                }}
-              >
-                Volgende <ChevronRight className="h-4 w-4" />
-              </Button>
-            )}
-            {allAnswered ? (
-              <ConfettiButton onClick={handleFinish}>
-                <Send className="h-4 w-4" />
-                {skipEmailStep ? "Bekijk resultaat" : "Afronden"}
-              </ConfettiButton>
-            ) : (
-              <Button onClick={() => setIncompleteDialogOpen(true)}>
-                <Send className="h-4 w-4" />
-                Afronden
-              </Button>
-            )}
-          </div>
-        </div>
+        <span className={`text-sm transition-colors duration-200 ${selected || justSelected ? "font-medium text-primary" : ""}`}>
+          {option.label}
+        </span>
       </div>
-
-      {/* Incomplete answers dialog */}
-      <Dialog
-        open={incompleteDialogOpen}
-        onOpenChange={setIncompleteDialogOpen}
-      >
-        <DialogContent className="max-w-md max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              Niet alle vragen beantwoord
-            </DialogTitle>
-            <DialogDescription>
-              De volgende vragen zijn nog niet beantwoord. Beantwoord alle
-              vragen om de vragenlijst af te ronden.
-            </DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="max-h-[50vh]">
-            <div className="space-y-4 py-2 pr-4">
-              {unansweredBySection.map(({ section, questions }) => (
-                <div key={section.id}>
-                  <h4 className="font-semibold text-sm mb-1">
-                    {section.code && (
-                      <span className="text-primary mr-1">{section.code}.</span>
-                    )}
-                    {section.title}
-                  </h4>
-                  <ul className="space-y-1 ml-4">
-                    {questions.map((q) => (
-                      <li
-                        key={q.id}
-                        className="text-sm text-muted-foreground flex items-start gap-2"
-                      >
-                        <AlertCircle className="h-3.5 w-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
-                        <span>
-                          {q.code && (
-                            <span className="font-medium text-foreground mr-1">
-                              {q.code}
-                            </span>
-                          )}
-                          {q.prompt}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIncompleteDialogOpen(false)}
-            >
-              Sluiten
-            </Button>
-            {unansweredBySection.length > 0 && (
-              <Button
-                onClick={() => {
-                  const firstSection = unansweredBySection[0].section;
-                  const idx = questionnaire.sections.findIndex(
-                    (s) => s.id === firstSection.id,
-                  );
-                  if (idx >= 0) setCurrentSectionIndex(idx);
-                  setIncompleteDialogOpen(false);
-                  setTimeout(scrollToSection, 100);
-                }}
-              >
-                Ga naar eerste ontbrekende vraag
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+    </button>
   );
 }
 
 function Header({ tenant }: { tenant: Questionnaire["tenant"] }) {
   const hasBranding = !!tenant.primaryColor;
-  const textColor =
-    tenant.headerTextColor ||
-    (hasBranding
-      ? isLightColor(tenant.primaryColor!)
-        ? "#1e293b"
-        : "#ffffff"
-      : undefined);
-  const headerStyle: React.CSSProperties = hasBranding
-    ? { backgroundColor: tenant.primaryColor!, color: textColor }
-    : {};
+  const textColor = tenant.headerTextColor || (hasBranding ? (isLightColor(tenant.primaryColor!) ? "#1e293b" : "#ffffff") : undefined);
+  const headerStyle: React.CSSProperties = hasBranding ? { backgroundColor: tenant.primaryColor!, color: textColor } : {};
+  const base = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, "");
+  const logoSrc = tenant.logoUrl?.startsWith("/api/") ? `${base}${tenant.logoUrl}` : tenant.logoUrl;
+  const hasName = !!tenant.name;
+  const logoOnly = logoSrc && !hasName;
 
   return (
-    <header
-      className={hasBranding ? "shadow-sm" : "border-b bg-background"}
-      style={headerStyle}
-    >
-      <div className="mx-auto max-w-5xl flex items-center gap-3 p-4">
-        {tenant.logoUrl ? (
-          <img
-            src={tenant.logoUrl}
-            alt={tenant.name}
-            className="h-8 w-8 rounded object-contain"
-            style={
-              hasBranding
-                ? { backgroundColor: "rgba(255,255,255,0.2)", padding: "2px" }
-                : undefined
-            }
-          />
-        ) : hasBranding ? (
-          <div
-            className="h-8 w-8 rounded flex items-center justify-center text-sm font-bold"
-            style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
-          >
-            {tenant.name?.[0] || "G"}
+    <header className={hasBranding ? "shadow-sm" : "border-b bg-background"} style={headerStyle}>
+      <div className={`mx-auto max-w-5xl flex items-center gap-3 p-4 ${logoOnly ? "justify-center" : ""}`}>
+        {logoSrc ? (
+          <img src={logoSrc} alt={tenant.name || ""} className="object-contain" style={{ width: "25%" }} />
+        ) : hasBranding && hasName ? (
+          <div className="h-8 w-8 flex items-center justify-center text-sm font-bold" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
+            {tenant.name[0]}
           </div>
         ) : null}
-        <span className="font-semibold text-lg">{tenant.name}</span>
+        {hasName && <span className="font-semibold text-lg">{tenant.name}</span>}
       </div>
     </header>
   );
 }
 
-function QuestionCard({
-  question,
-  selectedOptionId,
-  onSelect,
-  subtextColor,
+function StepNav({
+  sections,
+  currentSectionIndex,
+  onSelectSection,
+  style,
+  answers,
+  activeIndicatorColor,
 }: {
-  question: Question;
-  selectedOptionId?: string;
-  onSelect: (optionId: string) => void;
-  subtextColor?: string | null;
+  sections: Section[];
+  currentSectionIndex: number;
+  onSelectSection: (idx: number) => void;
+  style?: React.CSSProperties;
+  answers: Record<string, string>;
+  activeIndicatorColor?: string | null;
 }) {
-  // Group options by groupLabel (only if meaningful labels exist)
-  const groupedOptions = useMemo(() => {
-    const hasGroupLabels = question.options.some((opt) => opt.groupLabel);
-    if (!hasGroupLabels) {
-      return null;
-    }
-    const groups: Record<string, Option[]> = {};
-    for (const opt of question.options) {
-      const group = opt.groupLabel || "Opties";
-      if (!groups[group]) groups[group] = [];
-      groups[group].push(opt);
-    }
-    return groups;
-  }, [question.options]);
+  const current = sections[currentSectionIndex];
+  const label = current
+    ? `${current.code ? current.code + ". " : ""}${current.title}`
+    : "";
+
+  function isSectionComplete(sec: Section) {
+    return sec.questions.length > 0 && sec.questions.every((q) => answers[q.id]);
+  }
 
   return (
-    <div className="space-y-3">
-      <div>
-        <h4 className="font-medium">
-          {question.code && (
-            <span className="text-primary mr-1">{question.code}</span>
-          )}
-          {question.prompt}
-          {question.isRequired && (
-            <span className="text-destructive ml-1">*</span>
-          )}
-        </h4>
-        {question.helpText && (
-          <p
-            className="text-sm text-muted-foreground mt-1"
-            style={subtextColor ? { color: subtextColor } : undefined}
-          >
-            {question.helpText}
-          </p>
-        )}
-      </div>
+    <div className="bg-background/95 backdrop-blur" style={{ borderBottom: "2px solid var(--border)", ...style }}>
+      <div className="mx-auto max-w-3xl px-4 py-2 flex items-center gap-2">
+        <span className="text-sm font-medium whitespace-nowrap">
+          Hoofdstuk {currentSectionIndex + 1} van {sections.length}
+        </span>
 
-      <RadioGroup value={selectedOptionId} onValueChange={onSelect}>
-        {groupedOptions
-          ? Object.entries(groupedOptions).map(([groupLabel, options]) => (
-              <div key={groupLabel} className="space-y-2">
-                <Badge
-                  variant={
-                    groupLabel === "Niet toegestaan" ? "destructive" : "default"
-                  }
-                  className="text-xs"
-                >
-                  {groupLabel}
-                </Badge>
-                {options.map((option) => (
-                  <div
-                    key={option.id}
-                    className="flex items-start space-x-3 py-1"
-                  >
-                    <RadioGroupItem
-                      value={option.id}
-                      id={option.id}
-                      className="mt-0.5"
-                    />
-                    <Label
-                      htmlFor={option.id}
-                      className="font-normal leading-snug cursor-pointer"
-                    >
-                      {option.label}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            ))
-          : question.options.map((option) => (
-              <div key={option.id} className="flex items-start space-x-3 py-1">
-                <RadioGroupItem
-                  value={option.id}
-                  id={option.id}
-                  className="mt-0.5"
-                />
-                <Label
-                  htmlFor={option.id}
-                  className="font-normal leading-snug cursor-pointer"
-                >
-                  {option.label}
-                </Label>
-              </div>
+        <Select
+          value={String(currentSectionIndex)}
+          onValueChange={(val) => onSelectSection(Number(val))}
+        >
+          <SelectTrigger className="flex-1 h-9 text-sm min-w-0">
+            <SelectValue>{label}</SelectValue>
+          </SelectTrigger>
+          <SelectContent position="popper" side="bottom" sideOffset={4}>
+            {sections.map((sec, idx) => (
+              <SelectItem
+                key={sec.id}
+                value={String(idx)}
+                hideIndicator
+                rightSlot={
+                  isSectionComplete(sec)
+                    ? <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    : idx === currentSectionIndex
+                      ? <Circle className={`h-3 w-3 ${activeIndicatorColor ? "" : "fill-primary text-primary"}`} style={activeIndicatorColor ? { fill: activeIndicatorColor, color: activeIndicatorColor } : undefined} />
+                      : null
+                }
+              >
+                <span className="flex items-center gap-2">
+                  <DynamicIcon name={sec.icon} className="h-4 w-4 flex-shrink-0" />
+                  <span>{sec.code ? `${sec.code}. ` : ""}{sec.title}</span>
+                </span>
+              </SelectItem>
             ))}
-      </RadioGroup>
-
-      <Separator />
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 }
 
-// Helper: convert hex color to HSL string
+// ─── Helpers ──────────────────────────────────────────────
+
 function hexToHSL(hex: string): string {
   let r = parseInt(hex.slice(1, 3), 16) / 255;
   let g = parseInt(hex.slice(3, 5), 16) / 255;
   let b = parseInt(hex.slice(5, 7), 16) / 255;
-
-  const max = Math.max(r, g, b),
-    min = Math.min(r, g, b);
-  let h = 0,
-    s = 0;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
   const l = (max + min) / 2;
-
   if (max !== min) {
     const d = max - min;
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
     switch (max) {
-      case r:
-        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-        break;
-      case g:
-        h = ((b - r) / d + 2) / 6;
-        break;
-      case b:
-        h = ((r - g) / d + 4) / 6;
-        break;
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
     }
   }
-
   return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
 
-// Helper: determine if a hex color is "light" (for choosing contrasting text)
 function isLightColor(hex: string): boolean {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
-  // Relative luminance formula (WCAG)
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5;
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5;
 }

@@ -6,6 +6,8 @@ export interface QuestionEntity {
   code: string | null;
   prompt: string;
   helpText: string | null;
+  imageUrl: string | null;
+  imageScale: number | null;
   isRequired: boolean;
   displayOrder: number;
   createdAt: Date;

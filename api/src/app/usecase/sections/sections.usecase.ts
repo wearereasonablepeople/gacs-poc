@@ -11,13 +11,13 @@ export class SectionsUseCase {
     return this.sectionRepo.findByQuestionnaire(questionnaireId);
   }
 
-  async create(questionnaireId: string, data: { code?: string; title: string; description?: string }) {
+  async create(questionnaireId: string, data: { code?: string; title: string; description?: string; icon?: string; imageUrl?: string; imageScale?: number }) {
     const maxOrder = await this.sectionRepo.getMaxDisplayOrder(questionnaireId);
     const displayOrder = maxOrder + 1;
     return this.sectionRepo.create({ questionnaireId, ...data, displayOrder } as any);
   }
 
-  async update(id: string, data: { code?: string; title?: string; description?: string }) {
+  async update(id: string, data: { code?: string; title?: string; description?: string; icon?: string; imageUrl?: string; imageScale?: number }) {
     return this.sectionRepo.update(id, data as any);
   }
 

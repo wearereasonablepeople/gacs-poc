@@ -20,6 +20,7 @@ export interface PdfData {
   tenantName: string;
   respondentEmail: string | null;
   submittedAt: string | null;
+  logoUrl?: string | null;
   sections: PdfSection[];
 }
 
@@ -64,13 +65,10 @@ export function computeScores(sections: PdfSection[]): {
   return { overall, sectionScores };
 }
 
-function getScoreColor(pct: number): [number, number, number] {
-  if (pct >= 80) return [0, 130, 60];
-  if (pct >= 50) return [200, 140, 0];
-  return [200, 30, 30];
-}
-
-export function getMotivationalMessage(pct: number, tenantName: string): string {
+export function getMotivationalMessage(
+  pct: number,
+  tenantName: string,
+): string {
   if (pct === 100) {
     return "Gefeliciteerd! Uw systeem voldoet volledig aan alle eisen. Er zijn geen verdere acties nodig.";
   }
@@ -83,328 +81,238 @@ export function getMotivationalMessage(pct: number, tenantName: string): string 
   return `Uw systeem vereist urgente aandacht op meerdere onderdelen. Neem vandaag nog contact op met ${tenantName} voor een volledig verbetertraject naar 100% compliance.`;
 }
 
-/**
- * Generate a PDF document from questionnaire submission data.
- * Returns the jsPDF instance so callers can either save() or output().
- */
-export function generateSubmissionPdf(data: PdfData): jsPDF {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const marginLeft = 20;
-  const marginRight = 20;
-  const contentWidth = pageWidth - marginLeft - marginRight;
-  let y = 20;
+// ─── Colors ─────────────────────────────────────────────
+const PURPLE: [number, number, number] = [88, 28, 135]; // #581C87
+const GRAY_BAR: [number, number, number] = [210, 210, 210];
+const DARK_TEXT: [number, number, number] = [40, 40, 40];
+const MUTED_TEXT: [number, number, number] = [100, 100, 100];
 
-  const addPageIfNeeded = (requiredSpace: number) => {
-    if (y + requiredSpace > pageHeight - 20) {
-      doc.addPage();
-      y = 20;
-    }
-  };
+// ─── Image loader ───────────────────────────────────────
+async function loadImageAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    if (!blob.type.startsWith("image/")) return null;
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+function getImageFormat(dataUrl: string): string {
+  if (dataUrl.includes("image/jpeg") || dataUrl.includes("image/jpg")) return "JPEG";
+  if (dataUrl.includes("image/png")) return "PNG";
+  if (dataUrl.includes("image/webp")) return "WEBP";
+  return "PNG";
+}
+
+const SECTION_DESCRIPTION =
+  "Op basis van uw antwoorden hebben we de GACS-readiness van uw gebouw geanalyseerd. In dit overzicht vindt u per installatieonderdeel een duiding van de huidige situatie, inclusief aandachtspunten en optimalisatiemogelijkheden. De uitkomsten geven richting aan vervolgstappen om prestaties, compliance en toekomstbestendigheid verder te versterken.";
+
+/**
+ * Generate a branded PDF matching the GACS Compliance Check design.
+ */
+export async function generateSubmissionPdf(data: PdfData): Promise<jsPDF> {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pw = doc.internal.pageSize.getWidth(); // 210
+  const ph = doc.internal.pageSize.getHeight(); // 297
+  const ml = 15;
+  const mr = 15;
+  const cw = pw - ml - mr;
 
   const { overall, sectionScores } = computeScores(data.sections);
 
-  // ---- Header ----
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.text(data.questionnaireTitle, marginLeft, y);
-  y += 8;
+  // Pre-load all images
+  const imagePromises: Promise<string | null>[] = [];
+  const numSections = sectionScores.length;
+  for (let i = 0; i <= numSections; i++) {
+    imagePromises.push(loadImageAsDataUrl(`/pdf-assets/${i}.png`));
+  }
+  const images = await Promise.all(imagePromises);
+  const coverImg = images[0];
 
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 100, 100);
-  doc.text(data.tenantName, marginLeft, y);
-  y += 6;
+  // Load fixed GACS logo for cover page
+  const logoImg = await loadImageAsDataUrl("/pdf-assets/logo-paars.png");
 
-  if (data.respondentEmail) {
-    doc.text(`Respondent: ${data.respondentEmail}`, marginLeft, y);
-    y += 6;
+  // ════════════════════════════════════════════════════════
+  // PAGE 1 – COVER
+  // ════════════════════════════════════════════════════════
+
+  const safeAddImage = (img: string, x: number, y: number, w: number, h: number) => {
+    try { doc.addImage(img, getImageFormat(img), x, y, w, h); } catch { /* skip broken image */ }
+  };
+
+  // Cover background image (top area)
+  if (coverImg) {
+    safeAddImage(coverImg, 0, 0, pw, pw * 0.75);
   }
 
-  if (data.submittedAt) {
-    const date = new Date(data.submittedAt).toLocaleString("nl-NL");
-    doc.text(`Ingediend: ${date}`, marginLeft, y);
-    y += 6;
+  // Logo top-left
+  if (logoImg) {
+    safeAddImage(logoImg, ml, 8, 45, 12);
   }
 
-  // Divider line
-  doc.setDrawColor(200, 200, 200);
-  doc.line(marginLeft, y, pageWidth - marginRight, y);
-  y += 10;
-
-  doc.setTextColor(0, 0, 0);
-
-  // ---- Score Overview ----
-  const scoreColor = getScoreColor(overall);
-
-  doc.setFontSize(36);
+  // Title: "GACS\nCompliance\nCheck" in large bold purple over image
+  doc.setFontSize(48);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(...scoreColor);
-  doc.text(`${overall}%`, marginLeft, y + 2);
+  doc.setTextColor(...PURPLE);
+  doc.text(data.questionnaireTitle || "GACS\nCompliance\nCheck", ml, 60, { maxWidth: pw * 0.55 });
 
+  // Description text below title (left column)
+  const descStartY = 115;
   doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(60, 60, 60);
-  doc.text("Compliance Score", marginLeft + 30, y - 6);
-
-  doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(120, 120, 120);
-  const totalGraded = sectionScores.reduce((s, sec) => s + sec.total, 0);
-  const totalScored = sectionScores.reduce((s, sec) => s + sec.scored, 0);
-  if (totalGraded > 0) {
-    doc.text(
-      `${totalScored} van ${totalGraded} beoordeelde vragen correct beantwoord`,
-      marginLeft + 30,
-      y,
-    );
-  }
-  y += 10;
+  doc.setTextColor(...DARK_TEXT);
+  const descLines = doc.splitTextToSize(SECTION_DESCRIPTION, pw * 0.42);
+  doc.text(descLines, ml, descStartY);
 
-  // ---- Section Bar Chart ----
-  addPageIfNeeded(14 + sectionScores.length * 10);
-
-  doc.setFontSize(11);
+  // Right side: "Uw compliance score:" + big percentage
+  const scoreX = pw * 0.52;
+  const scoreY = 110;
+  doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(40, 40, 40);
-  doc.text("Score per sectie", marginLeft, y);
-  y += 7;
+  doc.setTextColor(...DARK_TEXT);
+  doc.text("Uw compliance score:", scoreX, scoreY);
 
-  const barX = marginLeft + 55;
-  const barMaxWidth = contentWidth - 70;
-  const barHeight = 6;
+  doc.setFontSize(56);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...PURPLE);
+  doc.text(`${overall}%`, scoreX, scoreY + 22);
 
-  for (const sec of sectionScores) {
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(60, 60, 60);
-    const label = sec.code ? `${sec.code}. ${sec.title}` : sec.title;
-    const truncated =
-      label.length > 28 ? label.substring(0, 26) + "..." : label;
-    doc.text(truncated, marginLeft, y + 4);
+  // Bar chart section
+  const barStartY = 170;
+  const barLabelWidth = 55;
+  const barX = ml + barLabelWidth;
+  const barMaxWidth = cw - barLabelWidth - 15;
+  const barHeight = 7;
+  const barSpacing = 11;
 
-    doc.setFillColor(230, 230, 230);
-    doc.roundedRect(barX, y, barMaxWidth, barHeight, 1.5, 1.5, "F");
+  for (let i = 0; i < sectionScores.length; i++) {
+    const sec = sectionScores[i];
+    const y = barStartY + i * barSpacing;
+    const label = sec.code ? `${sec.code}. ${sec.title}` : `${i + 1}. ${sec.title}`;
+    const truncated = label.length > 30 ? label.substring(0, 28) + "..." : label;
 
+    // Label
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...DARK_TEXT);
+    doc.text(truncated, ml, y + 5);
+
+    // Background bar
+    doc.setFillColor(...GRAY_BAR);
+    doc.rect(barX, y, barMaxWidth, barHeight, "F");
+
+    // Filled bar
     const filledWidth = (sec.percentage / 100) * barMaxWidth;
     if (filledWidth > 0) {
-      const [r, g, b] = getScoreColor(sec.percentage);
-      doc.setFillColor(r, g, b);
-      doc.roundedRect(
-        barX,
-        y,
-        Math.max(filledWidth, 3),
-        barHeight,
-        1.5,
-        1.5,
-        "F",
-      );
+      doc.setFillColor(...PURPLE);
+      doc.rect(barX, y, Math.max(filledWidth, 2), barHeight, "F");
     }
 
-    doc.setFontSize(8);
+    // Percentage label
+    doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    const [cr, cg, cb] = getScoreColor(sec.percentage);
-    doc.setTextColor(cr, cg, cb);
-    doc.text(`${sec.percentage}%`, barX + barMaxWidth + 3, y + 4.5);
-
-    y += 9;
+    doc.setTextColor(...DARK_TEXT);
+    doc.text(`${sec.percentage}%`, barX + barMaxWidth + 3, y + 5);
   }
-  y += 4;
 
-  // ---- Motivational Message ----
-  addPageIfNeeded(24);
-
-  const msg = getMotivationalMessage(overall, data.tenantName);
-  doc.setFontSize(9);
-  const msgLines = doc.splitTextToSize(msg, contentWidth - 16);
-  const boxHeight = msgLines.length * 4.5 + 10;
-
-  const [br, bg, bb] = scoreColor;
-  doc.setFillColor(br, bg, bb);
-  doc.roundedRect(marginLeft, y, contentWidth, boxHeight, 2, 2, "F");
-
+  // Bottom text
+  const bottomY = barStartY + sectionScores.length * barSpacing + 12;
+  doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(255, 255, 255);
-  doc.text(msgLines, marginLeft + 8, y + 7);
+  doc.setTextColor(...PURPLE);
+  const bottomText = "Op de vervolgpagina's vindt u een breakdown van uw resultaten per categorie, met aanbevelingen.\nLees snel verder!";
+  doc.text(bottomText, ml, bottomY, { maxWidth: cw });
 
-  y += boxHeight + 6;
+  // ════════════════════════════════════════════════════════
+  // CHAPTER PAGES – alternating layout (2 per page for spacious design)
+  // ════════════════════════════════════════════════════════
 
-  // Divider before detailed answers
-  doc.setDrawColor(200, 200, 200);
-  doc.line(marginLeft, y, pageWidth - marginRight, y);
-  y += 8;
+  const sectionsPerPage = 3;
+  const pageMarginTop = 12;
+  const pageUsable = ph - pageMarginTop - 12;
+  const sectionBlockHeight = Math.floor(pageUsable / sectionsPerPage);
 
-  doc.setTextColor(0, 0, 0);
+  for (let i = 0; i < sectionScores.length; i++) {
+    const sec = sectionScores[i];
+    const chapterImg = images[i + 1] || null;
+    const isImageLeft = i % 2 === 0;
+    const positionInPage = i % sectionsPerPage;
 
-  // Collect non-allowed answers for the action items section
-  const notAllowedItems: {
-    sectionTitle: string;
-    sectionCode: string | null;
-    questionCode: string | null;
-    questionPrompt: string;
-    selectedLabel: string;
-    allowedOptions: string[];
-  }[] = [];
+    if (positionInPage === 0) {
+      doc.addPage();
+    }
 
-  // ---- Detailed Answers per Section ----
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(40, 40, 40);
-  doc.text("Gedetailleerde antwoorden", marginLeft, y);
-  y += 8;
-  doc.setTextColor(0, 0, 0);
+    const blockY = pageMarginTop + positionInPage * sectionBlockHeight;
+    const imgW = pw * 0.38;
+    const imgH = sectionBlockHeight * 0.7;
+    const textW = pw * 0.5;
 
-  for (const section of data.sections) {
-    addPageIfNeeded(20);
+    const imgXLeft = ml;
+    const imgXRight = pw - mr - imgW;
+    const textXAfterImg = ml + imgW + 8;
+    const textXStart = ml;
 
-    // Section title
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    const sectionLabel = section.code
-      ? `${section.code}. ${section.title}`
-      : section.title;
-    doc.text(sectionLabel, marginLeft, y);
-    y += 8;
-
-    // Questions
-    for (const question of section.questions) {
-      addPageIfNeeded(20);
-
-      // Question prompt
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      const questionLabel = question.code
-        ? `${question.code} – ${question.prompt}`
-        : question.prompt;
-      const questionLines = doc.splitTextToSize(questionLabel, contentWidth);
-      doc.text(questionLines, marginLeft, y);
-      y += questionLines.length * 4.5;
-
-      // Answer
-      doc.setFont("helvetica", "normal");
-      if (question.selectedOption) {
-        const answerText = question.selectedOption.groupLabel
-          ? `${question.selectedOption.groupLabel}: ${question.selectedOption.label}`
-          : question.selectedOption.label;
-
-        if (question.selectedOption.isAllowed === false) {
-          doc.setTextColor(200, 30, 30);
-          const answerLines = doc.splitTextToSize(
-            `✗ ${answerText} (niet toegestaan)`,
-            contentWidth - 5,
-          );
-          doc.text(answerLines, marginLeft + 5, y);
-          y += answerLines.length * 4.5;
-
-          notAllowedItems.push({
-            sectionTitle: section.title,
-            sectionCode: section.code,
-            questionCode: question.code,
-            questionPrompt: question.prompt,
-            selectedLabel: answerText,
-            allowedOptions: question.allowedOptions,
-          });
-        } else {
-          doc.setTextColor(0, 100, 0);
-          const answerLines = doc.splitTextToSize(
-            `→ ${answerText}`,
-            contentWidth - 5,
-          );
-          doc.text(answerLines, marginLeft + 5, y);
-          y += answerLines.length * 4.5;
-        }
-      } else {
-        doc.setTextColor(180, 180, 180);
-        doc.text("→ Niet beantwoord", marginLeft + 5, y);
-        y += 4.5;
+    if (isImageLeft) {
+      if (chapterImg) {
+        safeAddImage(chapterImg, imgXLeft, blockY, imgW, imgH);
       }
 
-      doc.setTextColor(0, 0, 0);
-      y += 3;
-    }
-
-    // Section divider
-    y += 2;
-    doc.setDrawColor(230, 230, 230);
-    doc.line(marginLeft, y, pageWidth - marginRight, y);
-    y += 6;
-  }
-
-  // ---- Action Items: Not Allowed Answers ----
-  if (notAllowedItems.length > 0) {
-    addPageIfNeeded(30);
-
-    // Section header
-    doc.setDrawColor(200, 30, 30);
-    doc.line(marginLeft, y, pageWidth - marginRight, y);
-    y += 8;
-
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(200, 30, 30);
-    doc.text("Actiepunten – Niet-toegestane antwoorden", marginLeft, y);
-    y += 4;
-
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(100, 100, 100);
-    doc.text(
-      "De volgende antwoorden zijn niet toegestaan en moeten worden aangepast.",
-      marginLeft,
-      y,
-    );
-    y += 8;
-
-    doc.setTextColor(0, 0, 0);
-
-    for (let i = 0; i < notAllowedItems.length; i++) {
-      const item = notAllowedItems[i];
-      addPageIfNeeded(25);
-
-      doc.setFontSize(10);
+      const tx = textXAfterImg;
+      doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
-      const qLabel = item.questionCode
-        ? `${i + 1}. ${item.questionCode} – ${item.questionPrompt}`
-        : `${i + 1}. ${item.questionPrompt}`;
-      const qLines = doc.splitTextToSize(qLabel, contentWidth);
-      doc.text(qLines, marginLeft, y);
-      y += qLines.length * 4.5;
+      doc.setTextColor(...PURPLE);
+      const titleLabel = sec.code ? `${sec.code}. ${sec.title}` : `${i + 1}. ${sec.title}`;
+      doc.text(titleLabel, tx, blockY + 10, { maxWidth: textW });
 
+      doc.setFontSize(14);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(200, 30, 30);
-      const currentLines = doc.splitTextToSize(
-        `Huidig antwoord: ${item.selectedLabel}`,
-        contentWidth - 5,
-      );
-      doc.text(currentLines, marginLeft + 5, y);
-      y += currentLines.length * 4.5;
+      doc.setTextColor(...MUTED_TEXT);
+      const dLines = doc.splitTextToSize(SECTION_DESCRIPTION, textW - 2);
+      doc.text(dLines, tx, blockY + 18, { maxWidth: textW - 2 });
 
-      if (item.allowedOptions.length > 0) {
-        doc.setTextColor(0, 100, 0);
-        doc.text("Toegestane alternatieven:", marginLeft + 5, y);
-        y += 4.5;
+      doc.setFontSize(28);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...PURPLE);
+      doc.text(`${sec.percentage}%`, imgXLeft, blockY + imgH + 8);
+    } else {
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...PURPLE);
+      const titleLabel = sec.code ? `${sec.code}. ${sec.title}` : `${i + 1}. ${sec.title}`;
+      doc.text(titleLabel, textXStart, blockY + 10, { maxWidth: textW });
 
-        for (const alt of item.allowedOptions) {
-          addPageIfNeeded(6);
-          const altLines = doc.splitTextToSize(`  • ${alt}`, contentWidth - 10);
-          doc.text(altLines, marginLeft + 5, y);
-          y += altLines.length * 4.5;
-        }
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...MUTED_TEXT);
+      const dLines = doc.splitTextToSize(SECTION_DESCRIPTION, textW - 2);
+      doc.text(dLines, textXStart, blockY + 18, { maxWidth: textW - 2 });
+
+      if (chapterImg) {
+        safeAddImage(chapterImg, imgXRight, blockY, imgW, imgH);
       }
 
-      doc.setTextColor(0, 0, 0);
-      y += 4;
+      doc.setFontSize(28);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...PURPLE);
+      doc.text(`${sec.percentage}%`, imgXRight, blockY + imgH + 8);
     }
   }
 
-  // ---- Footer on last page ----
-  doc.setFontSize(8);
+  // ─── Footer on last page ────────────────────────────────
+  doc.setFontSize(14);
   doc.setTextColor(150, 150, 150);
   doc.text(
     `Gegenereerd op ${new Date().toLocaleString("nl-NL")}`,
-    marginLeft,
-    pageHeight - 10,
+    ml,
+    ph - 8,
   );
 
   return doc;
@@ -418,5 +326,5 @@ export function buildPdfFilename(questionnaireTitle: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
-  return `${safe}-antwoorden.pdf`;
+  return `${safe}-resultaten.pdf`;
 }

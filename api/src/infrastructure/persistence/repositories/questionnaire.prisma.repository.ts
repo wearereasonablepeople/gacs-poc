@@ -60,6 +60,12 @@ export class PrismaQuestionnaireRepository implements IQuestionnaireRepository {
           select: {
             id: true, slug: true, name: true, primaryColor: true,
             secondaryColor: true, headerTextColor: true, subtextColor: true,
+            startButtonColor: true, previousButtonColor: true,
+            nextQuestionButtonColor: true, prevQuestionButtonColor: true,
+            stepNavBgColor: true, stepNavTextColor: true,
+            progressBarBgColor: true, progressBarColor: true, progressBarTextColor: true,
+            questionContainerBgColor: true,
+            activeChapterIndicatorColor: true,
             logoUrl: true, faviconUrl: true,
           },
         },
