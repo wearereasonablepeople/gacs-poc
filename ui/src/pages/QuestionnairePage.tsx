@@ -45,6 +45,10 @@ import {
   getMotivationalMessage,
 } from "@/lib/pdf";
 import { emailSubmissionSchema } from "@/lib/schemas";
+import {
+  getIntroDisplayImageUrl,
+  getSectionDisplayImageUrl,
+} from "@/lib/sectionImages";
 import confetti from "canvas-confetti";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -615,16 +619,21 @@ export function QuestionnairePage() {
 
   // ─── STEP: intro ────────────────────────────────────────
   if (step.type === "intro") {
+    const introImageSrc = getIntroDisplayImageUrl(
+      questionnaire.introImageUrl,
+      resolveImageUrl,
+    );
+
     return (
       <div className="min-h-screen bg-muted/50 flex flex-col" style={pageBackground}>
         <Header tenant={questionnaire.tenant} />
         <div className="flex-1 flex flex-col items-center pt-8 p-4">
           <div className="w-full max-w-2xl gacs-fade-up">
           <Card className="w-full text-center">
-            {questionnaire.introImageUrl && (
+            {introImageSrc && (
               <div className="overflow-hidden flex justify-center gacs-fade-in">
                 <img
-                  src={resolveImageUrl(questionnaire.introImageUrl)}
+                  src={introImageSrc}
                   alt=""
                   className="max-h-96 object-contain"
                   style={{ width: `${questionnaire.introImageScale ?? 100}%` }}
@@ -686,6 +695,12 @@ export function QuestionnairePage() {
     const section = questionnaire.sections[step.sectionIndex];
     if (!section) { setStep({ type: "intro" }); return null; }
 
+    const sectionImageSrc = getSectionDisplayImageUrl(
+      section,
+      step.sectionIndex,
+      resolveImageUrl,
+    );
+
     return (
       <div className="min-h-screen bg-muted/50 flex flex-col" style={pageBackground}>
         <Header tenant={questionnaire.tenant} />
@@ -700,10 +715,10 @@ export function QuestionnairePage() {
         <div className="flex-1 flex flex-col items-center pt-8 p-4">
           <AnimatedCard stepKey={`sec-${step.sectionIndex}`} direction={navDirectionRef.current} className="w-full max-w-2xl">
           <Card className="w-full text-center">
-            {section.imageUrl && (
+            {sectionImageSrc && (
               <div className="overflow-hidden flex justify-center gacs-fade-in">
                 <img
-                  src={resolveImageUrl(section.imageUrl)}
+                  src={sectionImageSrc}
                   alt=""
                   className="max-h-96 object-contain"
                   style={{ width: `${section.imageScale ?? 100}%` }}

@@ -97,6 +97,10 @@ Each tenant has customizable branding applied at runtime:
 | **Logo URL** | Questionnaire header logo |
 | **Favicon URL** | Browser tab icon |
 
+### Section intro images
+
+Tenants can upload custom intro and section images in `/reporting`. When none is set, the respondent UI (`/ui`) falls back to bundled assets in `ui/public/pdf-assets/`: the questionnaire intro uses `0.png`; section code `1` uses `1.png`, section `2` uses `2.png`, and so on through `7.png` (same assets used in the generated PDF).
+
 ### Offline Support
 
 The respondent UI (`/ui`) supports offline usage:
