@@ -264,6 +264,72 @@ docker compose logs -f api
 
 ---
 
+## Deploy to DigitalOcean (UI only, IP address)
+
+Production stack: **postgres + api + ui + nginx gateway**. Only port **80** is public; reporting and monitoring are not deployed.
+
+| URL | Service |
+|-----|---------|
+| `http://DROPLET_IP/` | Respondent UI |
+| `http://DROPLET_IP/api/...` | API (proxied, not a separate public port) |
+
+### 1. Droplet setup
+
+- Ubuntu 24.04, 2 GB+ RAM recommended
+- Install Docker: `apt install -y docker.io docker-compose-v2 git`
+- Cloud firewall: allow **22** (SSH) and **80** (HTTP) only
+
+### 2. Clone private GitHub repo
+
+On the droplet, create a deploy key and add it read-only under repo **Settings → Deploy keys**, then:
+
+```bash
+git clone git@github.com:YOUR_ORG/gacs.git
+cd gacs
+```
+
+### 3. Configure environment
+
+```bash
+cp .env.production.example .env
+nano .env
+```
+
+Set `API_URL`, `UI_URL`, `REPORTING_URL`, and `MONITORING_URL` to `http://YOUR_DROPLET_IP` (same IP, no `/api` suffix). Set `POSTGRES_PASSWORD`, `SESSION_SECRET`, and real **SMTP** credentials. Do not set `NODE_ENV=production` for HTTP-only IP access (secure cookies need HTTPS).
+
+### 4. Start production stack
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml exec api npm run seed   # first deploy only
+```
+
+### 5. Verify
+
+- Questionnaire: `http://YOUR_DROPLET_IP/croonwolterdros/gacs-compliance-check`
+- API health: `curl http://YOUR_DROPLET_IP/api/public/croonwolterdros/gacs-compliance-check`
+
+Change default seed passwords before any wider use. Email verification links use `http://YOUR_DROPLET_IP/api/verify-email?...`.
+
+### 6. Updates
+
+```bash
+git pull
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+After changes to [`deploy/nginx.conf`](deploy/nginx.conf) only:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --force-recreate gateway
+```
+
+If `API_URL` changes, rebuild (UI bakes in `VITE_API_URL` at image build time).
+
+More detail: [deploy/README.md](deploy/README.md) (troubleshooting: white page, gateway restarts, port 80).
+
+---
+
 ## Project Structure
 
 ```
@@ -310,7 +376,10 @@ gacs/
 │   ├── briefing.md               # Project briefing
 │   └── checklist-*.pdf           # GACS checklist (NEN-EN-ISO 52120)
 │
-├── docker-compose.yml            # All services orchestration
+├── docker-compose.yml            # Dev: all services orchestration
+├── docker-compose.prod.yml       # Prod: postgres, api, ui, gateway (port 80)
+├── deploy/                       # nginx.conf, droplet deploy notes
+├── .env.production.example       # Droplet / IP deployment template
 ├── .env                          # Environment variables
 ├── .gitignore
 └── README.md
