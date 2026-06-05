@@ -1,5 +1,5 @@
-import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
@@ -26,6 +26,8 @@ async function bootstrap() {
   );
 
   // CORS – allow all three frontends + extra origins (e.g. ngrok tunnels)
+  const allowAllOrigins = process.env.CORS_ALLOW_ALL === 'true';
+
   const corsOrigins: (string | RegExp)[] = [
     process.env.UI_URL || 'http://localhost:3000',
     process.env.REPORTING_URL || 'http://localhost:3001',
@@ -37,10 +39,15 @@ async function bootstrap() {
   if (process.env.ALLOW_NGROK === 'true') {
     corsOrigins.push(/\.ngrok(-free)?\.app$/);
   }
-  app.enableCors({
-    origin: corsOrigins,
-    credentials: true,
-  });
+
+app.enableCors(
+  allowAllOrigins
+    ? { origin: true, credentials: true }
+    : {
+        origin: corsOrigins,
+        credentials: true,
+      },
+);
 
   app.use(cookieParser());
 

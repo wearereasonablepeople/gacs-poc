@@ -206,6 +206,45 @@ docker compose exec api npm run seed
 - **Instant results (skip email):** http://localhost:3000/croonwolterdros/gacs-compliance-check?skipEmailStep=1
 - **Instant results:** http://localhost:3000/croonwolterdros/gacs-compliance-check?skipEmailStep=1
 
+### NGROK setup
+
+Share the respondent UI with others over the internet (e.g. for demos) without deploying to a server.
+
+1. **Install ngrok** — Go to [Download ngrok for macOS](https://ngrok.com/download/mac-os), create a free account, then install and authenticate:
+
+   ```bash
+   brew install ngrok
+   ngrok config add-authtoken "<YOUR_AUTHTOKEN>"
+   ```
+
+   Your authtoken is shown in the [ngrok dashboard](https://dashboard.ngrok.com/) after sign-up. To expose a local port, run `ngrok http <port>` (see step 3).
+
+2. **Start the project locally:**
+
+   ```bash
+   docker compose -f docker-compose.yml up -d --build
+   ```
+
+   Seeding is automatically done when the [api Dockerfile](/api/Dockerfile.dev) is used in the [compose file](docker-compose.yml)
+
+3. **Start ngrok** on the UI port (in a separate terminal):
+
+   ```bash
+   ngrok http 3000
+   ```
+
+   ngrok prints a public HTTPS URL (e.g. `https://….ngrok-free.app`). The Vite dev server proxies `/api` to the API container, so the questionnaire works through that single tunnel.
+
+4. **Share the questionnaire URL** — append the tenant and questionnaire slugs to your ngrok URL:
+
+   ```
+   https://NGROK-URL.ngrok-free.dev/croonwolterdros/gacs-compliance-check
+   ```
+
+   Replace the host with whatever ngrok shows for your session (free-tier URLs change when you restart ngrok unless you use a reserved domain).
+
+5. **Keep the host machine running** — The computer that runs Docker and `ngrok http 3000` must stay on and connected; when you stop ngrok or shut down the machine, the public URL stops working.
+
 ### Login Credentials (from seed)
 
 | App | Email | Password | Role |
