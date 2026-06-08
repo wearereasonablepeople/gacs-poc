@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { LogIn, AlertCircle } from 'lucide-react';
+import { LogIn, AlertCircle, ClipboardCheck } from 'lucide-react';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -42,10 +42,10 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo / branding */}
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xl font-bold">
-            G
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+            <ClipboardCheck className="h-6 w-6 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold">GACS Reporting</h1>
+          <h1 className="text-2xl font-bold">Reporting</h1>
           <p className="text-sm text-muted-foreground">Tenant administration panel</p>
         </div>
 

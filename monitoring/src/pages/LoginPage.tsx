@@ -67,7 +67,7 @@ export function LoginPage() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
             <Activity className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-xl">GACS Monitoring</CardTitle>
+          <CardTitle className="text-xl">Platform Admin</CardTitle>
           <CardDescription>
             Sign in to the platform administration panel
           </CardDescription>

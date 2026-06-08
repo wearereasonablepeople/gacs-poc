@@ -41,20 +41,32 @@ async function main() {
   });
   console.log('✅ Platform admin created: admin@gacs.local / Admin123!');
 
-  // ─── 2. Tenant: Croonwolter&dros ──────────────────────
+  // ─── 2. Tenant: company (migrate legacy croonwolterdros slug) ──
+  const legacyTenant = await prisma.tenant.findUnique({ where: { slug: 'croonwolterdros' } });
+  if (legacyTenant) {
+    await prisma.questionnaire.updateMany({
+      where: { tenantId: legacyTenant.id, slug: 'gacs-compliance-check' },
+      data: { slug: 'questionnaire' },
+    });
+    await prisma.tenant.update({
+      where: { id: legacyTenant.id },
+      data: { slug: 'company', name: 'company' },
+    });
+  }
+
   const tenant = await prisma.tenant.upsert({
-    where: { slug: 'croonwolterdros' },
-    update: {},
+    where: { slug: 'company' },
+    update: { name: 'company' },
     create: {
-      slug: 'croonwolterdros',
-      name: 'Croonwolter&dros',
+      slug: 'company',
+      name: 'company',
       primaryColor: '#003366',
       secondaryColor: '#FF6600',
       isActive: true,
       createdById: platformAdmin.id,
     },
   });
-  console.log('✅ Tenant created: Croonwolter&dros');
+  console.log('✅ Tenant created: company');
 
   // ─── 3. Tenant Owner ──────────────────────────────────
   const ownerPassword = await bcrypt.hash('Owner123!', SALT_ROUNDS);
@@ -90,11 +102,11 @@ async function main() {
 
   // ─── 5. GACS Questionnaire ────────────────────────────
   const questionnaire = await prisma.questionnaire.upsert({
-    where: { tenantId_slug: { tenantId: tenant.id, slug: 'gacs-compliance-check' } },
+    where: { tenantId_slug: { tenantId: tenant.id, slug: 'questionnaire' } },
     update: {},
     create: {
       tenantId: tenant.id,
-      slug: 'gacs-compliance-check',
+      slug: 'questionnaire',
       title: 'GACS Compliance Check',
       description:
         'Checklist technische eisen GACS conform NEN-EN-ISO 52120. Controleer of uw gebouwautomatisering- en controlesysteem voldoet aan de wettelijke eisen.',

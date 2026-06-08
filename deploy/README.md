@@ -21,7 +21,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml exec api npm run seed
 ```
 
-Open: `http://YOUR_DROPLET_IP/croonwolterdros/gacs-compliance-check`
+Open: `http://YOUR_DROPLET_IP/company/questionnaire`
 
 Change default seed passwords after first login (if you later expose reporting).
 

@@ -60,7 +60,7 @@ export function AppLayout() {
         <SidebarHeader>
           <div className="flex items-center gap-2 px-2 py-1">
             <Activity className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold">GACS Monitoring</span>
+            <span className="text-lg font-bold">Platform Admin</span>
           </div>
         </SidebarHeader>
         <SidebarSeparator />

@@ -93,7 +93,7 @@ Each tenant has customizable branding applied at runtime:
 | Setting | Description |
 |---------|-------------|
 | **Name** | Displayed in questionnaire header |
-| **Slug** | URL identifier (`/croonwolterdros/gacs-compliance-check`) |
+| **Slug** | URL identifier (`/company/questionnaire`) |
 | **Primary Color** | Applied via CSS custom properties |
 | **Secondary Color** | Page background / accents |
 | **Header Text Color** | Override for header text contrast |
@@ -202,9 +202,8 @@ docker compose exec api npm run seed
 
 ### Test the Questionnaire
 
-- **Normal flow:** http://localhost:3000/croonwolterdros/gacs-compliance-check
-- **Instant results (skip email):** http://localhost:3000/croonwolterdros/gacs-compliance-check?skipEmailStep=1
-- **Instant results:** http://localhost:3000/croonwolterdros/gacs-compliance-check?skipEmailStep=1
+- **Normal flow:** http://localhost:3000/company/questionnaire
+- **Instant results (skip email):** http://localhost:3000/company/questionnaire?skipEmailStep=1
 
 ### NGROK setup
 
@@ -238,7 +237,7 @@ Share the respondent UI with others over the internet (e.g. for demos) without d
 4. **Share the questionnaire URL** — append the tenant and questionnaire slugs to your ngrok URL:
 
    ```
-   https://NGROK-URL.ngrok-free.dev/croonwolterdros/gacs-compliance-check
+   https://NGROK-URL.ngrok-free.dev/company/questionnaire
    ```
 
    Replace the host with whatever ngrok shows for your session (free-tier URLs change when you restart ngrok unless you use a reserved domain).
@@ -253,7 +252,7 @@ Share the respondent UI with others over the internet (e.g. for demos) without d
 | Reporting | `owner@croonwolterdros.nl` | `Owner123!` | Tenant Owner |
 | Reporting | `admin@croonwolterdros.nl` | `TenantAdmin123!` | Tenant Admin |
 
-When logging into **Reporting**, use tenant slug: `croonwol terdros`
+When logging into **Reporting**, use tenant slug: `company`
 
 ---
 
@@ -349,8 +348,8 @@ docker compose -f docker-compose.prod.yml exec api npm run seed   # first deploy
 
 ### 5. Verify
 
-- Questionnaire: `http://YOUR_DROPLET_IP/croonwolterdros/gacs-compliance-check`
-- API health: `curl http://YOUR_DROPLET_IP/api/public/croonwolterdros/gacs-compliance-check`
+- Questionnaire: `http://YOUR_DROPLET_IP/company/questionnaire`
+- API health: `curl http://YOUR_DROPLET_IP/api/public/company/questionnaire`
 
 Change default seed passwords before any wider use. Email verification links use `http://YOUR_DROPLET_IP/api/verify-email?...`.
 

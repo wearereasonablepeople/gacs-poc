@@ -262,7 +262,7 @@ export function DownloadPage() {
               className="h-8 w-8 rounded flex items-center justify-center text-sm font-bold"
               style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
             >
-              {tenant.name?.[0] || "G"}
+              {tenant.name?.[0] ?? "?"}
             </div>
           ) : null}
           <span className="font-semibold text-lg">{tenant?.name}</span>

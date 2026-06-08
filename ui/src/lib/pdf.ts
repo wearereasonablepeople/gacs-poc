@@ -88,11 +88,35 @@ const DARK_TEXT: [number, number, number] = [40, 40, 40];
 const MUTED_TEXT: [number, number, number] = [100, 100, 100];
 
 // ─── Image loader ───────────────────────────────────────
+function rasterizeSvg(svgText: string, width: number, height: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(null);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    img.onerror = () => resolve(null);
+    img.src = `data:image/svg+xml,${encodeURIComponent(svgText)}`;
+  });
+}
+
 async function loadImageAsDataUrl(url: string): Promise<string | null> {
   try {
     const resp = await fetch(url);
     if (!resp.ok) return null;
     const blob = await resp.blob();
+    if (blob.type === "image/svg+xml") {
+      const svgText = await blob.text();
+      return rasterizeSvg(svgText, 120, 32);
+    }
     if (!blob.type.startsWith("image/")) return null;
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -137,8 +161,7 @@ export async function generateSubmissionPdf(data: PdfData): Promise<jsPDF> {
   const images = await Promise.all(imagePromises);
   const coverImg = images[0];
 
-  // Load fixed GACS logo for cover page
-  const logoImg = await loadImageAsDataUrl("/pdf-assets/logo-paars.png");
+  const logoImg = await loadImageAsDataUrl("/pdf-assets/generic-logo.svg");
 
   // ════════════════════════════════════════════════════════
   // PAGE 1 – COVER

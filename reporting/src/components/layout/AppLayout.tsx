@@ -9,6 +9,7 @@ import {
   Shield,
   LogOut,
   ChevronDown,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -81,11 +82,11 @@ export default function AppLayout() {
       <Sidebar collapsible="icon">
         <SidebarHeader>
           <div className="flex items-center gap-2 px-2 py-1">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-bold">
-              G
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10">
+              <ClipboardCheck className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">GACS Reporting</p>
+              <p className="text-sm font-semibold">Reporting</p>
               <p className="text-xs text-muted-foreground truncate">
                 {user?.tenantName || 'Tenant'}
               </p>

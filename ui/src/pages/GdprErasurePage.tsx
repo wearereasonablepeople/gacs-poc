@@ -115,7 +115,7 @@ export function GdprErasurePage() {
               <Input
                 id="tenant-slug"
                 type="text"
-                placeholder="bijv. croonwolterdros"
+                placeholder="bijv. company"
                 value={tenantSlug}
                 onChange={(e) => {
                   setTenantSlug(e.target.value);
@@ -123,7 +123,7 @@ export function GdprErasurePage() {
                 }}
               />
               <p className="text-xs text-muted-foreground">
-                De organisatie-ID vindt u in de URL van de vragenlijst (bijv. croonwolterdros/gacs-compliance-check).
+                De organisatie-ID vindt u in de URL van de vragenlijst (bijv. company/questionnaire).
               </p>
             </div>
 
