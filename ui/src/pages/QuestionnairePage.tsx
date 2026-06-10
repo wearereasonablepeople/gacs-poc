@@ -7,7 +7,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -16,8 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -37,14 +34,12 @@ import {
   onConnectivityChange,
   processQueue,
 } from "@/lib/offline";
-import type { PdfData, PdfSection } from "@/lib/pdf";
+import type { PdfData } from "@/lib/pdf";
 import {
   buildPdfFilename,
   computeScores,
   generateSubmissionPdf,
-  getMotivationalMessage,
 } from "@/lib/pdf";
-import { emailSubmissionSchema } from "@/lib/schemas";
 import {
   getIntroDisplayImageUrl,
   getSectionDisplayImageUrl,
@@ -62,14 +57,13 @@ import {
   Clock,
   Download,
   Loader2,
-  Send,
   TrendingDown,
   TrendingUp,
   Trophy,
   WifiOff,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 // ─── Type definitions ────────────────────────────────────
 
@@ -145,18 +139,14 @@ type Step =
   | { type: "intro" }
   | { type: "section-intro"; sectionIndex: number }
   | { type: "question"; sectionIndex: number; questionIndex: number }
-  | { type: "email" }
-  | { type: "results" }
-  | { type: "email-sent" };
+  | { type: "complete" };
 
 function stepOrder(s: Step): number {
   switch (s.type) {
     case "intro": return 0;
     case "section-intro": return 1000 + s.sectionIndex * 100;
     case "question": return 1000 + s.sectionIndex * 100 + s.questionIndex + 1;
-    case "email": return 100000;
-    case "results": return 100001;
-    case "email-sent": return 100002;
+    case "complete": return 100000;
   }
 }
 
@@ -167,8 +157,6 @@ export function QuestionnairePage() {
     tenantSlug: string;
     questionnaireSlug: string;
   }>();
-  const [searchParams] = useSearchParams();
-
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [step, setStepRaw] = useState<Step>({ type: "intro" });
@@ -182,18 +170,12 @@ export function QuestionnairePage() {
       return next;
     });
   }, []);
-  const [email, setEmail] = useState("");
-  const [emailError, setEmailError] = useState("");
-  const [consentGiven, setConsentGiven] = useState(false);
+  const [finalizeError, setFinalizeError] = useState("");
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [incompleteDialogOpen, setIncompleteDialogOpen] = useState(false);
 
   const [online, setOnline] = useState(isOnline());
   const [syncing, setSyncing] = useState(false);
-
-  const skipEmailStep = useMemo(() => {
-    const v = (searchParams.get("skipEmailStep") || "").toLowerCase();
-    return v === "1" || v === "true" || v === "yes";
-  }, [searchParams]);
 
   useEffect(() => {
     return onConnectivityChange((status) => {
@@ -252,7 +234,7 @@ export function QuestionnairePage() {
   // Confetti on completion
   const confettiFiredRef = useRef(false);
   useEffect(() => {
-    if ((step.type === "email-sent" || step.type === "results") && questionnaire?.showConfetti && !confettiFiredRef.current) {
+    if (step.type === "complete" && questionnaire?.showConfetti && !confettiFiredRef.current) {
       confettiFiredRef.current = true;
       const end = Date.now() + 2500;
       const frame = () => {
@@ -282,21 +264,21 @@ export function QuestionnairePage() {
 
   const didStartRef = useRef(false);
   useEffect(() => {
-    if (questionnaire && !submissionId && !skipEmailStep && !didStartRef.current) {
+    if (questionnaire && !submissionId && !didStartRef.current) {
       didStartRef.current = true;
       startMutation.mutate(questionnaire.id);
     }
-  }, [questionnaire, submissionId, skipEmailStep]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [questionnaire, submissionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save answer
   const saveAnswerMutation = useMutation({
     mutationFn: async ({ questionId, selectedOptionId }: { questionId: string; selectedOptionId: string }) => {
-      if (skipEmailStep || !submissionId) return;
+      if (!submissionId) return;
       if (submissionId.startsWith("local-")) throw new Error("offline");
       await api.post(`/submissions/${submissionId}/answers`, { questionId, selectedOptionId });
     },
     onError: (_err, variables) => {
-      if (skipEmailStep || !submissionId) return;
+      if (!submissionId) return;
       enqueue({ type: "save_answer", payload: { submissionId, questionId: variables.questionId, selectedOptionId: variables.selectedOptionId } });
     },
   });
@@ -304,13 +286,12 @@ export function QuestionnairePage() {
   const handleAnswerSelect = useCallback(
     (questionId: string, optionId: string) => {
       setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
-      if (!skipEmailStep) saveAnswerMutation.mutate({ questionId, selectedOptionId: optionId });
+      saveAnswerMutation.mutate({ questionId, selectedOptionId: optionId });
     },
-    [skipEmailStep, saveAnswerMutation],
+    [saveAnswerMutation],
   );
 
-  // Email submit
-  const emailMutation = useMutation({
+  const finalizeMutation = useMutation({
     mutationFn: async () => {
       let sid = submissionId;
       if (!sid || sid.startsWith("local-")) {
@@ -319,12 +300,11 @@ export function QuestionnairePage() {
         sid = data.id;
         setSubmissionId(sid);
       }
-      // Sync all answers to ensure none are lost (idempotent upsert)
       for (const [qId, oId] of Object.entries(answers)) {
         await api.post(`/submissions/${sid}/answers`, { questionId: qId, selectedOptionId: oId });
       }
       try {
-        await api.post(`/submissions/${sid}/email`, { email, consentGiven: true });
+        await api.post(`/submissions/${sid}/finalize`);
       } catch (err: any) {
         const msg: string = err?.response?.data?.message || "";
         if (msg.toLowerCase().includes("already finalized") || msg.toLowerCase().includes("submission not found")) {
@@ -335,31 +315,32 @@ export function QuestionnairePage() {
           for (const [qId, oId] of Object.entries(answers)) {
             await api.post(`/submissions/${sid}/answers`, { questionId: qId, selectedOptionId: oId });
           }
-          await api.post(`/submissions/${sid}/email`, { email, consentGiven: true });
+          await api.post(`/submissions/${sid}/finalize`);
         } else throw err;
       }
     },
-    onSuccess: () => { setStep({ type: "email-sent" }); },
+    onSuccess: () => { setFinalizeError(""); },
     onError: (error: Error) => {
-      setEmailError((error as any)?.response?.data?.message || error.message || "Er is een fout opgetreden.");
+      setFinalizeError((error as any)?.response?.data?.message || error.message || "Er is een fout opgetreden.");
     },
   });
 
-  const handleEmailSubmit = useCallback(() => {
-    const result = emailSubmissionSchema.safeParse({ email });
-    if (!result.success) { setEmailError(result.error.errors[0].message); return; }
-    setEmailError("");
-    emailMutation.mutate();
-  }, [email, emailMutation]);
+  const finalizeAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (step.type !== "complete" || finalizeAttemptedRef.current) return;
+    finalizeAttemptedRef.current = true;
+    finalizeMutation.mutate();
+  }, [step.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDownloadPdf = useCallback(async () => {
-    if (!questionnaire) return;
+    if (!questionnaire || isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
     try {
       const pdfData: PdfData = {
         questionnaireTitle: questionnaire.title,
         tenantName: questionnaire.tenant.name,
         respondentEmail: null,
-        submittedAt: null,
+        submittedAt: new Date().toISOString(),
         logoUrl: questionnaire.tenant.logoUrl,
         sections: questionnaire.sections.map((section) => ({
           code: section.code,
@@ -378,19 +359,10 @@ export function QuestionnairePage() {
       doc.save(buildPdfFilename(questionnaire.title));
     } catch (err) {
       console.error("PDF generation failed:", err);
+    } finally {
+      setIsGeneratingPdf(false);
     }
-  }, [questionnaire, answers]);
-
-  const handleRestart = useCallback(() => {
-    setAnswers({});
-    setSubmissionId(null);
-    didStartRef.current = false;
-    setStep({ type: "intro" });
-    setEmail("");
-    setEmailError("");
-    setConsentGiven(false);
-    setIncompleteDialogOpen(false);
-  }, []);
+  }, [questionnaire, answers, isGeneratingPdf]);
 
   // ─── Derived data ───────────────────────────────────────
   const totalQuestions = questionnaire?.sections.reduce((s, sec) => s + sec.questions.length, 0) || 0;
@@ -440,10 +412,8 @@ export function QuestionnairePage() {
   }
 
   function finishQuestionnaire() {
-    if (skipEmailStep) {
-      setStep({ type: "results" });
-    } else if (answeredCount >= totalQuestions) {
-      setStep({ type: "email" });
+    if (answeredCount >= totalQuestions) {
+      setStep({ type: "complete" });
     } else {
       setIncompleteDialogOpen(true);
     }
@@ -528,95 +498,6 @@ export function QuestionnairePage() {
     );
   }
 
-  // ─── STEP: email-sent ───────────────────────────────────
-  if (step.type === "email-sent") {
-    const completionImg = questionnaire.completionImageUrl
-      ? questionnaire.completionImageUrl.startsWith("/api/") ? `${apiBase}${questionnaire.completionImageUrl}` : questionnaire.completionImageUrl
-      : null;
-    return (
-      <div className="min-h-screen bg-muted/50 flex flex-col" style={pageBackground}>
-        <Header tenant={questionnaire.tenant} />
-        <div className="flex-1 flex flex-col items-center pt-8 p-4">
-          <Card className="w-full max-w-md text-center gacs-fade-up">
-            <CardHeader>
-              {completionImg && (
-                <img src={completionImg} alt="" className="mx-auto max-h-48 object-contain mb-4 gacs-fade-in" />
-              )}
-              <CheckCircle2 className="mx-auto h-12 w-12 text-green-600" />
-              <CardTitle>{questionnaire.completionTitle || "Verificatie-e-mail verzonden"}</CardTitle>
-              <CardDescription>
-                {questionnaire.completionDescription || (
-                  <>We hebben een verificatie-e-mail gestuurd naar <strong>{email}</strong>. Klik op de link in de e-mail om uw inzending te voltooien.</>
-                )}
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── STEP: results (skipEmailStep) ──────────────────────
-  if (step.type === "results") {
-    const pdfSections: PdfSection[] = questionnaire.sections.map((sec) => ({
-      code: sec.code,
-      title: sec.title,
-      questions: sec.questions.map((q) => {
-        const sel = q.options.find((o) => o.id === answers[q.id]);
-        return {
-          code: q.code, prompt: q.prompt,
-          selectedOption: sel ? { label: sel.label, groupLabel: sel.groupLabel, isAllowed: sel.isAllowed ?? null } : null,
-          allowedOptions: q.options.filter((o) => o.isAllowed === true).map((o) => o.label),
-        };
-      }),
-    }));
-    const { overall: overallScore, sectionScores } = computeScores(pdfSections);
-    const motivationalMsg = getMotivationalMessage(overallScore, questionnaire.tenant.name);
-    const scoreColorClass = overallScore >= 80 ? "text-green-600" : overallScore >= 50 ? "text-amber-600" : "text-red-600";
-    const scoreBgClass = overallScore >= 80 ? "bg-green-50 border-green-200 text-green-800" : overallScore >= 50 ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-red-50 border-red-200 text-red-800";
-
-    return (
-      <div className="min-h-screen bg-muted/50" style={pageBackground}>
-        <Header tenant={questionnaire.tenant} />
-        <div className="mx-auto max-w-3xl p-4 pt-8 space-y-6">
-          <Card>
-            <CardHeader className="text-center pb-2">
-              <p className={`text-5xl font-bold ${scoreColorClass}`}>{overallScore}%</p>
-              <CardTitle className="text-lg">Compliance Score</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className={`border p-3 text-sm ${scoreBgClass}`}>{motivationalMsg}</div>
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold">Score per hoofdstuk</h4>
-                {sectionScores.map((sec) => {
-                  const barColor = sec.percentage >= 80 ? "bg-green-500" : sec.percentage >= 50 ? "bg-amber-500" : "bg-red-500";
-                  const label = sec.code ? `${sec.code}. ${sec.title}` : sec.title;
-                  return (
-                    <div key={label} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground truncate mr-2">{label}</span>
-                        <span className="font-semibold shrink-0">{sec.percentage}%</span>
-                      </div>
-                      <div className="h-2 bg-muted overflow-hidden">
-                        <div className={`h-full ${barColor}`} style={{ width: `${sec.percentage}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="flex gap-3 pt-2">
-                <Button variant="outline" onClick={handleDownloadPdf} className="flex-1">
-                  <Download className="h-4 w-4" /> Download PDF
-                </Button>
-                <Button onClick={handleRestart} className="flex-1">Opnieuw starten</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
   // ─── STEP: intro ────────────────────────────────────────
   if (step.type === "intro") {
     const introImageSrc = getIntroDisplayImageUrl(
@@ -665,10 +546,6 @@ export function QuestionnairePage() {
                   </span>
                 )}
               </div>
-
-              {skipEmailStep && (
-                <Badge variant="secondary" className="text-xs">Direct result mode</Badge>
-              )}
 
               <Button
                 size="lg"
@@ -909,9 +786,9 @@ export function QuestionnairePage() {
     );
   }
 
-  // ─── STEP: email ────────────────────────────────────────
-  if (step.type === "email") {
-    const emailPdfSections = questionnaire.sections.map((sec) => ({
+  // ─── STEP: complete ─────────────────────────────────────
+  if (step.type === "complete") {
+    const completePdfSections = questionnaire.sections.map((sec) => ({
       title: sec.title, code: sec.code,
       questions: sec.questions.map((q) => {
         const sel = q.options.find((o) => o.id === answers[q.id]);
@@ -922,11 +799,11 @@ export function QuestionnairePage() {
         };
       }),
     }));
-    const { overall: emailOverall, sectionScores: emailSectionScores } = computeScores(emailPdfSections);
-    const gradedSections = emailSectionScores.filter((s) => s.total > 0);
+    const { overall: completeOverall, sectionScores: completeSectionScores } = computeScores(completePdfSections);
+    const gradedSections = completeSectionScores.filter((s) => s.total > 0);
     const bestSection = gradedSections.length > 0 ? gradedSections.reduce((a, b) => (a.percentage >= b.percentage ? a : b)) : null;
     const worstSection = gradedSections.length > 0 ? gradedSections.reduce((a, b) => (a.percentage <= b.percentage ? a : b)) : null;
-    const emailScoreColor = emailOverall >= 80 ? "text-green-600" : emailOverall >= 50 ? "text-amber-600" : "text-red-600";
+    const scoreColor = completeOverall >= 80 ? "text-green-600" : completeOverall >= 50 ? "text-amber-600" : "text-red-600";
     const hasGradedQuestions = gradedSections.length > 0;
 
     return (
@@ -936,10 +813,9 @@ export function QuestionnairePage() {
           <div className="w-full max-w-2xl gacs-fade-up">
           <Card className="w-full">
             <CardHeader>
-              <CardTitle>Bijna klaar!</CardTitle>
+              <CardTitle>{questionnaire.completionTitle || "Klaar!"}</CardTitle>
               <CardDescription>
-                Voer uw e-mailadres in om uw inzending te voltooien.
-                U ontvangt een verificatie-e-mail met een PDF van uw antwoorden.
+                {questionnaire.completionDescription || "U kunt hieronder een PDF downloaden met al uw antwoorden."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -950,7 +826,7 @@ export function QuestionnairePage() {
                       <Trophy className="h-5 w-5 text-primary" />
                       <span className="font-semibold text-sm">Uw resultaat</span>
                     </div>
-                    <span className={`text-2xl font-bold ${emailScoreColor}`}>{emailOverall}%</span>
+                    <span className={`text-2xl font-bold ${scoreColor}`}>{completeOverall}%</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {bestSection && (
@@ -974,23 +850,16 @@ export function QuestionnairePage() {
                   </div>
                 </div>
               )}
-              <div className="space-y-2">
-                <Label htmlFor="email">E-mailadres</Label>
-                <Input
-                  id="email" type="email" placeholder="uw@email.nl"
-                  value={email}
-                  onChange={(e) => { setEmail(e.target.value); if (emailError) setEmailError(""); }}
-                  className={emailError ? "border-destructive" : ""}
-                />
-                {emailError && <p className="text-xs text-destructive">{emailError}</p>}
-              </div>
-              <div className="flex items-start space-x-3 border p-3">
-                <Checkbox id="consent" checked={consentGiven} onCheckedChange={(c) => setConsentGiven(c === true)} />
-                <label htmlFor="consent" className="text-xs text-muted-foreground leading-snug cursor-pointer">
-                  Ik ga akkoord met de verwerking van mijn e-mailadres en antwoorden door de organisatie die
-                  deze vragenlijst heeft opgesteld. Mijn gegevens worden bewaard conform de AVG (GDPR).
-                </label>
-              </div>
+              {finalizeError && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" /> {finalizeError}
+                </p>
+              )}
+              {finalizeMutation.isPending && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Inzending wordt opgeslagen...
+                </p>
+              )}
               <div className="flex gap-3">
                 <Button variant="outline" style={prevBtnStyle} onClick={() => {
                   const lastSec = questionnaire.sections.length - 1;
@@ -999,14 +868,19 @@ export function QuestionnairePage() {
                 }}>
                   <ChevronLeft className="h-4 w-4" /> Terug
                 </Button>
-                <Button style={startBtnStyle} onClick={handleEmailSubmit} disabled={emailMutation.isPending || !consentGiven} className="flex-1">
-                  {emailMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  Verstuur
+                <Button
+                  style={startBtnStyle}
+                  onClick={handleDownloadPdf}
+                  disabled={isGeneratingPdf}
+                  className="flex-1"
+                >
+                  {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  Download PDF
                 </Button>
               </div>
               {!online && (
                 <p className="text-xs text-amber-600 flex items-center gap-1">
-                  <WifiOff className="h-3 w-3" /> Verificatie vereist een internetverbinding.
+                  <WifiOff className="h-3 w-3" /> Opslaan vereist een internetverbinding.
                 </p>
               )}
             </CardContent>
@@ -1045,8 +919,7 @@ export function QuestionnairePage() {
           </Button>
           <Button onClick={() => {
             setIncompleteDialogOpen(false);
-            if (skipEmailStep) setStep({ type: "results" });
-            else setStep({ type: "email" });
+            setStep({ type: "complete" });
           }}>
             Toch doorgaan
           </Button>

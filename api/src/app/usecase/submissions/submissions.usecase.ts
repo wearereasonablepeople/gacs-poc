@@ -64,6 +64,22 @@ export class SubmissionsUseCase {
     );
   }
 
+  async finalizeSubmission(submissionId: string) {
+    const submission = await this.submissionRepo.findOne(submissionId);
+    if (!submission) {
+      throw new NotFoundException("Submission not found");
+    }
+    if (submission.submittedAt) {
+      throw new BadRequestException("Submission already finalized");
+    }
+
+    await this.submissionRepo.update(submissionId, {
+      submittedAt: new Date(),
+    } as any);
+
+    return { message: "Submission finalized." };
+  }
+
   async findOne(id: string) {
     const submission = await this.submissionRepo.findOneWithDetails(id);
     if (!submission) throw new NotFoundException("Submission not found");

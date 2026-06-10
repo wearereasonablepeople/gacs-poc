@@ -46,6 +46,11 @@ export class SubmissionsController {
     );
   }
 
+  @Post("submissions/:submissionId/finalize")
+  finalizeSubmission(@Param("submissionId") submissionId: string) {
+    return this.useCase.finalizeSubmission(submissionId);
+  }
+
   @Patch("submissions/:id/lead-status")
   @UseGuards(AuthenticatedGuard, RolesGuard)
   @Roles("tenant_owner", "tenant_admin")

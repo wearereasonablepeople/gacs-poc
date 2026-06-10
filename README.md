@@ -63,7 +63,7 @@ Every answer option can be marked **Allowed** or **Not allowed** based on the [R
 
 Scores are calculated per section and overall:
 - Displayed in the **generated PDF** (score overview, section bar chart, motivational message)
-- Displayed on the **instant results page** when using `skipEmailStep` mode
+- Displayed on the **completion screen** after finishing the questionnaire
 - Motivational messages encourage the respondent to contact the tenant based on their score
 
 ### Lead Tracking
@@ -84,7 +84,7 @@ Tenants can create HTML email templates via a **TinyMCE rich-text editor** in th
 
 ### Notification Emails
 
-When a respondent successfully submits, a notification email is sent to the tenant's configurable `notificationEmail` address (set in Branding).
+When a respondent verifies their email (legacy flow), a notification email is sent to the tenant's configurable `notificationEmail` address (set in Branding). The default completion flow no longer collects email; submissions are finalized directly and the respondent downloads a PDF client-side.
 
 ### Whitelabel Branding
 
@@ -112,14 +112,6 @@ The respondent UI (`/ui`) supports offline usage:
 - Failed API calls are queued and auto-synced when connectivity returns
 - Cached questionnaire data is used as fallback when offline
 
-### Testing Query Parameters
-
-The `/ui` app supports special query parameters for development/testing:
-
-| Parameter | Effect |
-|-----------|--------|
-| `skipEmailStep=1` | Bypasses email verification, shows instant results locally (no backend calls) |
-
 ---
 
 ## Domain Model
@@ -131,7 +123,7 @@ The `/ui` app supports special query parameters for development/testing:
 | **Platform Admin** | Global | Create/deactivate tenants, create owner accounts |
 | **Tenant Owner** | Their tenant | Full control: branding, users, questionnaires, publishing, deletion, export, lead management |
 | **Tenant Admin** | Their tenant | Content management: create/edit questionnaires, view submissions, update lead status |
-| **Respondent** | Public | Fill in published questionnaires, verify email |
+| **Respondent** | Public | Fill in published questionnaires, download PDF of answers |
 
 ### Data Model
 
@@ -145,7 +137,7 @@ platform_admins ─┐
 
 Key fields on `Submission`:
 - `leadStatus` — `open` | `in_progress` | `closed` (default: `open`)
-- `submittedAt` — set when email is verified
+- `submittedAt` — set when the submission is finalized on completion
 
 Key fields on `QuestionOption`:
 - `isAllowed` — `true` (allowed) | `false` (not allowed) | `null` (no designation)
@@ -160,7 +152,7 @@ Key fields on `QuestionOption`:
 6. **Tenant owner** publishes the questionnaire
 7. **Respondent** opens the public URL: `/{tenant_slug}/{questionnaire_slug}`
 8. **Respondent** answers all questions (auto-saved as draft, works offline)
-9. **Respondent** enters email → receives verification email → submission finalized
+9. **Respondent** completes the questionnaire → submission finalized → downloads PDF client-side
 10. **Tenant owner** views the submission in `/reporting`, manages lead status (open → in behandeling → afgehandeld)
 11. **Tenant owner** exports filtered submissions as CSV
 
@@ -203,7 +195,6 @@ docker compose exec api npm run seed
 ### Test the Questionnaire
 
 - **Normal flow:** http://localhost:3000/company/questionnaire
-- **Instant results (skip email):** http://localhost:3000/company/questionnaire?skipEmailStep=1
 
 ### NGROK setup
 
@@ -462,7 +453,7 @@ gacs/
 | Update lead status | | ✓ | ✓ | |
 | Export submission data (CSV) | | ✓ | | |
 | Fill in questionnaire | | | | ✓ |
-| Submit email for verification | | | | ✓ |
+| Download PDF of answers | | | | ✓ |
 
 ---
 
@@ -530,6 +521,7 @@ gacs/
 ### Submissions
 - `POST /api/submissions/start` — Start new submission
 - `POST /api/submissions/:id/answers` — Save answer
+- `POST /api/submissions/:id/finalize` — Finalize submission (set `submittedAt`)
 - `GET /api/submissions/:id` — Get submission details
 - `GET /api/submissions/:id/pdf-data` — Get full PDF data
 - `POST /api/submissions/:id/email` — Submit email for verification

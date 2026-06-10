@@ -210,44 +210,53 @@ export async function generateSubmissionPdf(data: PdfData): Promise<jsPDF> {
 
   // Bar chart section
   const barStartY = 170;
-  const barLabelWidth = 55;
-  const barX = ml + barLabelWidth;
-  const barMaxWidth = cw - barLabelWidth - 15;
-  const barHeight = 7;
-  const barSpacing = 11;
+  const barLabelWidth = 108;
+  const barGap = 6;
+  const barX = ml + barLabelWidth + barGap;
+  const pctLabelWidth = 14;
+  const barMaxWidth = Math.min(52, cw - barLabelWidth - barGap - pctLabelWidth - 2);
+  const barHeight = 6;
+  const barLabelFontSize = 8;
+  const barPctFontSize = 9;
+  const barLabelLineHeight = 3.2;
+  const barRowGap = 2;
 
+  let barRowY = barStartY;
   for (let i = 0; i < sectionScores.length; i++) {
     const sec = sectionScores[i];
-    const y = barStartY + i * barSpacing;
     const label = sec.code ? `${sec.code}. ${sec.title}` : `${i + 1}. ${sec.title}`;
-    const truncated = label.length > 30 ? label.substring(0, 28) + "..." : label;
 
-    // Label
-    doc.setFontSize(12);
+    doc.setFontSize(barLabelFontSize);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...DARK_TEXT);
-    doc.text(truncated, ml, y + 5);
+    const labelLines = doc.splitTextToSize(label, barLabelWidth);
+    const labelBlockHeight = labelLines.length * barLabelLineHeight;
+    doc.text(labelLines, ml, barRowY + barLabelLineHeight);
+
+    const barY = barRowY + Math.max(0, (labelBlockHeight - barHeight) / 2);
 
     // Background bar
     doc.setFillColor(...GRAY_BAR);
-    doc.rect(barX, y, barMaxWidth, barHeight, "F");
+    doc.rect(barX, barY, barMaxWidth, barHeight, "F");
 
     // Filled bar
     const filledWidth = (sec.percentage / 100) * barMaxWidth;
     if (filledWidth > 0) {
       doc.setFillColor(...PURPLE);
-      doc.rect(barX, y, Math.max(filledWidth, 2), barHeight, "F");
+      doc.rect(barX, barY, Math.max(filledWidth, 2), barHeight, "F");
     }
 
     // Percentage label
-    doc.setFontSize(12);
+    doc.setFontSize(barPctFontSize);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...DARK_TEXT);
-    doc.text(`${sec.percentage}%`, barX + barMaxWidth + 3, y + 5);
+    doc.text(`${sec.percentage}%`, barX + barMaxWidth + 2, barRowY + barLabelLineHeight);
+
+    barRowY += Math.max(labelBlockHeight, barHeight) + barRowGap;
   }
 
   // Bottom text
-  const bottomY = barStartY + sectionScores.length * barSpacing + 12;
+  const bottomY = barRowY + 10;
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...PURPLE);
@@ -262,6 +271,10 @@ export async function generateSubmissionPdf(data: PdfData): Promise<jsPDF> {
   const pageMarginTop = 12;
   const pageUsable = ph - pageMarginTop - 12;
   const sectionBlockHeight = Math.floor(pageUsable / sectionsPerPage);
+  const titleFontSize = 18;
+  const titleLineHeight = 7;
+  const bodyFontSize = 14;
+  const titleBodyGap = 4;
 
   for (let i = 0; i < sectionScores.length; i++) {
     const sec = sectionScores[i];
@@ -283,40 +296,36 @@ export async function generateSubmissionPdf(data: PdfData): Promise<jsPDF> {
     const textXAfterImg = ml + imgW + 8;
     const textXStart = ml;
 
+    const titleLabel = sec.code ? `${sec.code}. ${sec.title}` : `${i + 1}. ${sec.title}`;
+
+    const renderSectionText = (tx: number, titleStartY: number) => {
+      doc.setFontSize(titleFontSize);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...PURPLE);
+      const titleLines = doc.splitTextToSize(titleLabel, textW);
+      doc.text(titleLines, tx, titleStartY);
+
+      const bodyStartY = titleStartY + titleLines.length * titleLineHeight + titleBodyGap;
+      doc.setFontSize(bodyFontSize);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...MUTED_TEXT);
+      const dLines = doc.splitTextToSize(SECTION_DESCRIPTION, textW - 2);
+      doc.text(dLines, tx, bodyStartY, { maxWidth: textW - 2 });
+    };
+
     if (isImageLeft) {
       if (chapterImg) {
         safeAddImage(chapterImg, imgXLeft, blockY, imgW, imgH);
       }
 
-      const tx = textXAfterImg;
-      doc.setFontSize(18);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...PURPLE);
-      const titleLabel = sec.code ? `${sec.code}. ${sec.title}` : `${i + 1}. ${sec.title}`;
-      doc.text(titleLabel, tx, blockY + 10, { maxWidth: textW });
-
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...MUTED_TEXT);
-      const dLines = doc.splitTextToSize(SECTION_DESCRIPTION, textW - 2);
-      doc.text(dLines, tx, blockY + 18, { maxWidth: textW - 2 });
+      renderSectionText(textXAfterImg, blockY + 10);
 
       doc.setFontSize(28);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...PURPLE);
       doc.text(`${sec.percentage}%`, imgXLeft, blockY + imgH + 8);
     } else {
-      doc.setFontSize(18);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...PURPLE);
-      const titleLabel = sec.code ? `${sec.code}. ${sec.title}` : `${i + 1}. ${sec.title}`;
-      doc.text(titleLabel, textXStart, blockY + 10, { maxWidth: textW });
-
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...MUTED_TEXT);
-      const dLines = doc.splitTextToSize(SECTION_DESCRIPTION, textW - 2);
-      doc.text(dLines, textXStart, blockY + 18, { maxWidth: textW - 2 });
+      renderSectionText(textXStart, blockY + 10);
 
       if (chapterImg) {
         safeAddImage(chapterImg, imgXRight, blockY, imgW, imgH);
