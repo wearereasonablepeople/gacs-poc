@@ -107,11 +107,11 @@ function buildTextBody(
     "Score per sectie:",
     sections,
     "",
-    "Antwoorden:",
-    answerLines || "(geen)",
-    "",
     `Neem contact op met ${config.provider.name}`,
     contact,
+    "",
+    "Antwoorden:",
+    answerLines || "(geen)",
   ].join("\n");
 }
 
