@@ -22,30 +22,32 @@ export default function SectionStep({
   onNext,
   onGoToEmail,
 }: SectionStepProps) {
+  const isFirstSection = sectionIndex === 0;
   const isLastSection = sectionIndex === sectionCount - 1;
 
   return (
     <section className="flex-1">
-      {section.illustration && (
-        <img
-          src={section.illustration}
-          alt=""
-          width={1000}
-          height={667}
-          className="mx-auto mb-2 h-auto w-full max-w-lg"
-        />
-      )}
-      <div className="mb-6 flex items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-ink/50">
-            Sectie {sectionIndex + 1} van {sectionCount}
-          </p>
-          <h2 className="font-display text-2xl text-ink">{section.title}</h2>
-          {section.description && (
-            <p className="mt-1 text-sm text-ink/65">{section.description}</p>
-          )}
-        </div>
+      <div className="mb-6">
+        <p className="text-sm text-ink/50">
+          Sectie {sectionIndex + 1} van {sectionCount}
+        </p>
+        <h2 className="font-display text-2xl text-ink">{section.title}</h2>
+        {section.description && (
+          <p className="mt-1 text-sm text-ink/65">{section.description}</p>
+        )}
       </div>
+
+      {section.illustration && (
+        <div className="mb-6 bg-white">
+          <img
+            src={section.illustration}
+            alt=""
+            width={1000}
+            height={667}
+            className="mx-auto h-auto w-full max-w-lg"
+          />
+        </div>
+      )}
 
       <div className="space-y-6">
         {section.controlPoints.map((cp) => (
@@ -90,15 +92,20 @@ export default function SectionStep({
         ))}
       </div>
 
-      <div className="mt-8 flex items-center justify-between gap-3">
-        <button
-          type="button"
-          disabled={sectionIndex === 0}
-          onClick={onPrevious}
-          className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-pine disabled:opacity-40"
-        >
-          <ChevronLeft className="h-4 w-4" /> Vorige
-        </button>
+      <div
+        className={`mt-8 flex items-center gap-3 ${
+          isFirstSection ? "justify-end" : "justify-between"
+        }`}
+      >
+        {!isFirstSection && (
+          <button
+            type="button"
+            onClick={onPrevious}
+            className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-pine"
+          >
+            <ChevronLeft className="h-4 w-4" /> Vorige
+          </button>
+        )}
         {!isLastSection ? (
           <button
             type="button"
