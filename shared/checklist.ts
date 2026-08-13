@@ -17,8 +17,12 @@ export type ChecklistSection = {
   title: string;
   description?: string;
   icon?: string;
+  illustration?: string;
   controlPoints: ControlPoint[];
 };
+
+/** Illustration shown above the checklist itself; the other assets live per section. */
+export const CHECKLIST_HERO_ILLUSTRATION = '/illustrations/hero.webp';
 
 export const checklistSections: ChecklistSection[] = [
   {
@@ -26,6 +30,7 @@ export const checklistSections: ChecklistSection[] = [
     title: 'Verwarmingssysteem onderdelen',
     description: 'In dit onderdeel bekijken we de automatisering van uw verwarmingssysteem, van individuele ruimteregeling tot ketelsequenties.',
     icon: 'flame',
+    illustration: '/illustrations/verwarming.webp',
     controlPoints: [
       {
         code: '1.1',
@@ -294,6 +299,7 @@ export const checklistSections: ChecklistSection[] = [
     title: 'Warm tapwater onderdelen',
     description: 'Hoe wordt uw warm tapwatersysteem aangestuurd? Bekijk de regeling en automatisering van warm tapwater.',
     icon: 'droplets',
+    illustration: '/illustrations/warm-tapwater.webp',
     controlPoints: [
       {
         code: '2.1',
@@ -389,6 +395,7 @@ export const checklistSections: ChecklistSection[] = [
     title: 'Airconditioningssysteem onderdelen',
     description: 'Hoe wordt de koeling in uw gebouw geregeld? Controleer de automatisering van uw airconditioningssysteem.',
     icon: 'snowflake',
+    illustration: '/illustrations/airco.webp',
     controlPoints: [
       {
         code: '3.1',
@@ -634,6 +641,7 @@ export const checklistSections: ChecklistSection[] = [
     title: 'Ventilatiesysteem onderdelen',
     description: 'Bekijk hoe het ventilatiesysteem in uw gebouw geautomatiseerd is.',
     icon: 'wind',
+    illustration: '/illustrations/ventilatie.webp',
     controlPoints: [
       {
         code: '4.1',
@@ -872,6 +880,7 @@ export const checklistSections: ChecklistSection[] = [
     title: 'Verlichtingssysteem onderdelen',
     description: 'Hoe wordt de verlichting in uw gebouw aangestuurd?',
     icon: 'lightbulb',
+    illustration: '/illustrations/verlichting.webp',
     controlPoints: [
       {
         code: '5.1',
@@ -921,6 +930,7 @@ export const checklistSections: ChecklistSection[] = [
     title: 'Zonweringssysteem onderdelen',
     description: 'Is de zonwering in uw gebouw automatisch geregeld?',
     icon: 'sun',
+    illustration: '/illustrations/zonwering.webp',
     controlPoints: [
       {
         code: '6.1',
@@ -957,6 +967,7 @@ export const checklistSections: ChecklistSection[] = [
     title: 'Technisch gebouwmanagement onderdelen',
     description: 'Hoe worden de technisch gebouwmanagementfuncties in uw gebouw geautomatiseerd?',
     icon: 'monitor-cog',
+    illustration: '/illustrations/technische-ruimte.webp',
     controlPoints: [
       {
         code: '7.1',

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CHECKLIST_CONTROL_POINT_COUNT,
+  CHECKLIST_HERO_ILLUSTRATION,
   checklistSections,
 } from "@shared/checklist";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
@@ -33,6 +34,10 @@ export default function ChecklistPage() {
         /* offline/dev without API: keep defaults */
       });
   }, []);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [sectionIndex, step]);
 
   const answeredCount = useMemo(
     () => Object.keys(answers).length,
@@ -93,6 +98,15 @@ export default function ChecklistPage() {
 
       {step === "checklist" && section && (
         <section className="flex-1">
+          {section.illustration && (
+            <img
+              src={section.illustration}
+              alt=""
+              width={1000}
+              height={667}
+              className="mx-auto mb-2 h-auto w-full max-w-lg"
+            />
+          )}
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
               <p className="text-sm text-ink/50">
@@ -180,6 +194,13 @@ export default function ChecklistPage() {
 
       {step === "email" && (
         <section className="mx-auto w-full max-w-md flex-1">
+          <img
+            src={CHECKLIST_HERO_ILLUSTRATION}
+            alt=""
+            width={1000}
+            height={667}
+            className="mx-auto mb-2 h-auto w-full"
+          />
           <h2 className="font-display text-3xl text-ink">Ontvang uw resultaten</h2>
           <p className="mt-2 text-ink/65">
             Vul uw e-mailadres in. We tonen de score niet op het scherm — u
