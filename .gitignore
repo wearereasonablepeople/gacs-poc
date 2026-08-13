@@ -18,6 +18,10 @@ data/
 
 # TypeScript
 *.tsbuildinfo
+# Accidental tsc emit next to shared/*.ts (breaks Vite imports)
+shared/*.js
+shared/*.d.ts
+shared/*.js.map
 
 # IDE
 .vscode/
