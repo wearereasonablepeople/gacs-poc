@@ -48,12 +48,12 @@ export default function EmailStep({
       </div>
 
       {unansweredCount > 0 && (
-        <details className="mt-4 rounded-md border border-pine/15 bg-white">
-          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-ink">
+        <details className="mt-4">
+          <summary className="cursor-pointer border-b border-pine/15 py-3 text-sm text-ink">
             U heeft {unansweredCount} van {CHECKLIST_CONTROL_POINT_COUNT}{" "}
             control points niet beantwoord
           </summary>
-          <div className="space-y-4 border-t border-pine/10 px-4 py-3">
+          <div className="space-y-4 py-3">
             {unansweredSections.map((section) => (
               <div key={section.sectionId}>
                 <p className="text-xs font-semibold uppercase tracking-wider text-pine/70">
@@ -73,14 +73,14 @@ export default function EmailStep({
       )}
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
-        <label className="block text-sm font-semibold text-ink">
-          E-mailadres
+        <label className="block text-sm text-ink">
+          <span className="font-semibold">E-mailadres</span>
           <input
             type="email"
             required
             value={email}
             onChange={(e) => onEmailChange(e.target.value)}
-            className="mt-1 w-full rounded-md border border-pine/20 bg-white px-3 py-2.5 text-base outline-none ring-pine focus:ring-2"
+            className="mt-1 w-full rounded-md border border-pine/20 bg-white px-3 py-2.5 text-base font-normal outline-none ring-pine focus:ring-2"
             placeholder="naam@bedrijf.nl"
           />
         </label>

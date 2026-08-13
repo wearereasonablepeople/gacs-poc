@@ -17,6 +17,9 @@ export const config = {
       ? process.env.DATABASE_PATH
       : path.join(rootDir, process.env.DATABASE_PATH)
     : path.join(rootDir, "data/submissions.sqlite"),
+  resendApiKey: optional("RESEND_API_KEY"),
+  /** Full From header, e.g. `GACS Checker <onboarding@resend.dev>`. */
+  mailFrom: optional("MAIL_FROM"),
   smtp: {
     host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: Number(process.env.SMTP_PORT || 587),
@@ -35,11 +38,27 @@ export const config = {
   publicWebOrigin: process.env.PUBLIC_WEB_ORIGIN || "http://localhost:5173",
 };
 
-export function assertSmtpConfigured() {
+export function assertMailConfigured() {
+  if (config.resendApiKey) {
+    if (!config.mailFrom) {
+      throw Object.assign(
+        new Error("MAIL_FROM is verplicht wanneer RESEND_API_KEY is gezet"),
+        { status: 500 },
+      );
+    }
+    return;
+  }
   if (!config.smtp.user || !config.smtp.pass) {
     throw Object.assign(
-      new Error("SMTP_USER en SMTP_APP_PASSWORD zijn verplicht om mail te versturen"),
+      new Error(
+        "Zet RESEND_API_KEY (+ MAIL_FROM), of SMTP_USER + SMTP_APP_PASSWORD",
+      ),
       { status: 500 },
     );
   }
+}
+
+/** @deprecated Prefer assertMailConfigured — kept for older call sites. */
+export function assertSmtpConfigured() {
+  assertMailConfigured();
 }
