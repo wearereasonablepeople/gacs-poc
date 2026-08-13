@@ -32,6 +32,36 @@ function findOption(code: string, optionId: string) {
   return null;
 }
 
+export type UnansweredControlPoint = {
+  code: string;
+  title: string;
+};
+
+export type UnansweredSection = {
+  sectionId: string;
+  sectionTitle: string;
+  controlPoints: UnansweredControlPoint[];
+};
+
+export function getUnansweredSections(
+  answers: Answers,
+  sections: ChecklistSection[] = checklistSections,
+): UnansweredSection[] {
+  const unanswered: UnansweredSection[] = [];
+  for (const section of sections) {
+    const controlPoints = section.controlPoints
+      .filter((cp) => !answers[cp.code])
+      .map((cp) => ({ code: cp.code, title: cp.title }));
+    if (controlPoints.length === 0) continue;
+    unanswered.push({
+      sectionId: section.id,
+      sectionTitle: section.title,
+      controlPoints,
+    });
+  }
+  return unanswered;
+}
+
 export function computeScore(
   answers: Answers,
   sections: ChecklistSection[] = checklistSections,

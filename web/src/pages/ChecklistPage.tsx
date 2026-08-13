@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { checklistSections } from "@shared/checklist";
+import { getUnansweredSections } from "@shared/scoring";
 import { fetchChecklist, submitChecklist } from "../api";
 import type { ProviderInfo } from "../api";
 import EmailStep from "../components/EmailStep";
@@ -43,6 +44,10 @@ export default function ChecklistPage() {
   const answeredCount = useMemo(
     () => Object.keys(answers).length,
     [answers],
+  );
+  const unansweredSections = useMemo(
+    () => getUnansweredSections(answers, sections),
+    [answers, sections],
   );
   const section = sections[sectionIndex];
 
@@ -96,7 +101,7 @@ export default function ChecklistPage() {
 
       {step === "email" && (
         <EmailStep
-          answeredCount={answeredCount}
+          unansweredSections={unansweredSections}
           email={email}
           error={error}
           submitting={submitting}

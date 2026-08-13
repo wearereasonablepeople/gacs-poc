@@ -2,10 +2,11 @@ import {
   CHECKLIST_CONTROL_POINT_COUNT,
   CHECKLIST_HERO_ILLUSTRATION,
 } from "@shared/checklist";
+import type { UnansweredSection } from "@shared/scoring";
 import { Loader2 } from "lucide-react";
 
 type EmailStepProps = {
-  answeredCount: number;
+  unansweredSections: UnansweredSection[];
   email: string;
   error: string | null;
   submitting: boolean;
@@ -15,7 +16,7 @@ type EmailStepProps = {
 };
 
 export default function EmailStep({
-  answeredCount,
+  unansweredSections,
   email,
   error,
   submitting,
@@ -23,21 +24,51 @@ export default function EmailStep({
   onBack,
   onSubmit,
 }: EmailStepProps) {
+  const unansweredCount = unansweredSections.reduce(
+    (n, section) => n + section.controlPoints.length,
+    0,
+  );
+
   return (
-    <section className="mx-auto w-full max-w-md flex-1">
+    <section className="flex-1">
       <img
         src={CHECKLIST_HERO_ILLUSTRATION}
         alt=""
         width={1000}
         height={667}
-        className="mx-auto mb-2 h-auto w-full"
+        className="mx-auto mb-2 h-auto w-full max-w-lg"
       />
       <h2 className="font-display text-3xl text-ink">Ontvang uw resultaten</h2>
       <p className="mt-2 text-ink/65">
-        Vul uw e-mailadres in. We tonen de score niet op het scherm — u
-        ontvangt alles per mail ({answeredCount} van{" "}
-        {CHECKLIST_CONTROL_POINT_COUNT} beantwoord).
+        Vul uw e-mailadres in. We tonen de score niet op het scherm — u ontvangt
+        alles per mail.
       </p>
+
+      {unansweredCount > 0 && (
+        <details className="mt-4 rounded-md border border-pine/15 bg-white">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-ink">
+            U heeft {unansweredCount} van {CHECKLIST_CONTROL_POINT_COUNT}{" "}
+            control points niet beantwoord
+          </summary>
+          <div className="space-y-4 border-t border-pine/10 px-4 py-3">
+            {unansweredSections.map((section) => (
+              <div key={section.sectionId}>
+                <p className="text-xs font-semibold uppercase tracking-wider text-pine/70">
+                  {section.sectionTitle}
+                </p>
+                <ul className="mt-1 space-y-1">
+                  {section.controlPoints.map((cp) => (
+                    <li key={cp.code} className="text-sm text-ink/80">
+                      {cp.code} · {cp.title}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <label className="block text-sm font-semibold text-ink">
           E-mailadres
