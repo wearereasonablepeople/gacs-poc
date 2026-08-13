@@ -4,9 +4,10 @@ import { checklistSections } from "@shared/checklist";
 import { getUnansweredSections } from "@shared/scoring";
 import { fetchChecklist, submitChecklist } from "../api";
 import type { ProviderInfo } from "../api";
+import ChecklistIntro from "../components/ChecklistIntro";
 import EmailStep from "../components/EmailStep";
-import ProgressBar from "../components/ProgressBar";
 import SectionStep from "../components/SectionStep";
+import StickyProgressHeader from "../components/StickyProgressHeader";
 import WelcomeStep from "../components/WelcomeStep";
 
 const defaultProvider: ProviderInfo = {
@@ -76,14 +77,10 @@ export default function ChecklistPage() {
       )}
 
       {step !== "welcome" && (
-        <header className="sticky top-0 z-10 -mx-4 mb-8 border-b border-pine/10 bg-mist px-4 py-4 sm:-mx-6 sm:px-6">
-          <p className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-pine">
-            GACS Checker
-          </p>
-          <div className="mt-3">
-            <ProgressBar answeredCount={answeredCount} />
-          </div>
-        </header>
+        <>
+          <ChecklistIntro />
+          <StickyProgressHeader answeredCount={answeredCount} />
+        </>
       )}
 
       {step === "checklist" && section && (

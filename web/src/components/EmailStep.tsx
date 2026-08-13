@@ -31,18 +31,21 @@ export default function EmailStep({
 
   return (
     <section className="flex-1">
-      <img
-        src={CHECKLIST_HERO_ILLUSTRATION}
-        alt=""
-        width={1000}
-        height={667}
-        className="mx-auto mb-2 h-auto w-full max-w-lg"
-      />
       <h2 className="font-display text-3xl text-ink">Ontvang uw resultaten</h2>
       <p className="mt-2 text-ink/65">
         Vul uw e-mailadres in. We tonen de score niet op het scherm — u ontvangt
         alles per mail.
       </p>
+
+      <div className="mt-6 bg-white px-6">
+        <img
+          src={CHECKLIST_HERO_ILLUSTRATION}
+          alt=""
+          width={1000}
+          height={667}
+          className="mx-auto h-auto w-full max-w-lg"
+        />
+      </div>
 
       {unansweredCount > 0 && (
         <details className="mt-4 rounded-md border border-pine/15 bg-white">
@@ -86,7 +89,7 @@ export default function EmailStep({
             {error}
           </p>
         )}
-        <div className="flex gap-3">
+        <div className="flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={onBack}
@@ -97,7 +100,7 @@ export default function EmailStep({
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-select px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-select px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
           >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
             Verstuur resultaten
