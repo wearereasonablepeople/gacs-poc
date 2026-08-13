@@ -71,11 +71,11 @@ export default function ChecklistPage() {
       )}
 
       {step !== "welcome" && (
-        <header className="mb-8">
+        <header className="sticky top-0 z-10 -mx-4 mb-8 border-b border-pine/10 bg-mist px-4 py-4 sm:-mx-6 sm:px-6">
           <p className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-pine">
             GACS Checker
           </p>
-          <div className="mt-4">
+          <div className="mt-3">
             <ProgressBar answeredCount={answeredCount} />
           </div>
         </header>
