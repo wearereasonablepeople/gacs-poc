@@ -66,7 +66,7 @@ export default function EmailStep({
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-select px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
           >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
             Verstuur resultaten

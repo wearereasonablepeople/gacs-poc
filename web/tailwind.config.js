@@ -9,6 +9,8 @@ export default {
         mist: "#f4f6f8",
         sand: "#f7f3e8",
         accent: "#c45c26",
+        select: "#2563eb",
+        "select-soft": "#dbeafe",
       },
       fontFamily: {
         display: ['"Fraunces"', "Georgia", "serif"],

@@ -68,13 +68,13 @@ export default function SectionStep({
                     key={opt.id}
                     className={`flex cursor-pointer items-start gap-3 rounded-md border px-3 py-3 transition ${
                       selected
-                        ? "border-pine bg-pine/5"
+                        ? "border-select bg-select-soft"
                         : "border-transparent bg-white/70 hover:border-pine/20"
                     }`}
                   >
                     <input
                       type="radio"
-                      className="mt-1"
+                      className="mt-1 accent-select"
                       name={cp.code}
                       checked={selected}
                       onChange={() => onSelectOption(cp.code, opt.id)}
@@ -103,7 +103,7 @@ export default function SectionStep({
           <button
             type="button"
             onClick={onNext}
-            className="inline-flex items-center gap-2 rounded-md bg-pine px-5 py-2.5 text-sm font-semibold text-sand"
+            className="inline-flex items-center gap-2 rounded-md bg-select px-5 py-2.5 text-sm font-semibold text-white"
           >
             Volgende <ChevronRight className="h-4 w-4" />
           </button>
@@ -111,9 +111,9 @@ export default function SectionStep({
           <button
             type="button"
             onClick={onGoToEmail}
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-white"
+            className="inline-flex items-center gap-2 rounded-md bg-select px-5 py-2.5 text-sm font-semibold text-white"
           >
-            Naar verzenden
+            Afronden
           </button>
         )}
       </div>
