@@ -1,11 +1,22 @@
+# Dependencies
 node_modules/
 dist/
 build/
+web/dist/
+server/dist/
 
 # Environment
 .env
 .env.local
 .env.*.local
+
+# Data
+data/
+*.sqlite
+*.sqlite-journal
+
+# TypeScript
+*.tsbuildinfo
 
 # IDE
 .vscode/
@@ -14,12 +25,3 @@ build/
 # OS
 .DS_Store
 Thumbs.db
-
-# Prisma
-api/prisma/migrations/**/migration_lock.toml
-
-# Uploads
-api/uploads/
-
-# Docker
-pgdata/
