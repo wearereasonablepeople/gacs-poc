@@ -10,7 +10,7 @@ export default function ProgressBar({ answeredCount }: ProgressBarProps) {
   );
 
   return (
-    <div className="mt-6">
+    <div>
       <div className="mb-2 flex justify-between text-sm text-ink/60">
         <span>
           {answeredCount} van {CHECKLIST_CONTROL_POINT_COUNT} beantwoord

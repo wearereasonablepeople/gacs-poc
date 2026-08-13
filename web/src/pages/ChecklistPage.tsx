@@ -6,6 +6,7 @@ import type { ProviderInfo } from "../api";
 import EmailStep from "../components/EmailStep";
 import ProgressBar from "../components/ProgressBar";
 import SectionStep from "../components/SectionStep";
+import WelcomeStep from "../components/WelcomeStep";
 
 const defaultProvider: ProviderInfo = {
   name: "onze specialisten",
@@ -14,13 +15,15 @@ const defaultProvider: ProviderInfo = {
   phone: null,
 };
 
+type Step = "welcome" | "checklist" | "email";
+
 export default function ChecklistPage() {
   const navigate = useNavigate();
   const sections = checklistSections;
   const [sectionIndex, setSectionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [email, setEmail] = useState("");
-  const [step, setStep] = useState<"checklist" | "email">("checklist");
+  const [step, setStep] = useState<Step>("welcome");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [provider, setProvider] = useState<ProviderInfo>(defaultProvider);
@@ -63,19 +66,20 @@ export default function ChecklistPage() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-3xl flex-col px-4 py-8 sm:px-6">
-      <header className="mb-8">
-        <p className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-pine">
-          GACS Checker
-        </p>
-        <h1 className="mt-2 font-display text-4xl font-medium tracking-tight text-ink sm:text-5xl">
-          Checklist technische eisen
-        </h1>
-        <p className="mt-3 max-w-2xl text-base text-ink/70">
-          Beantwoord de control points die van toepassing zijn. U mag punten
-          openlaten. Na afloop ontvangt u de resultaten per e-mail.
-        </p>
-        <ProgressBar answeredCount={answeredCount} />
-      </header>
+      {step === "welcome" && (
+        <WelcomeStep onStart={() => setStep("checklist")} />
+      )}
+
+      {step !== "welcome" && (
+        <header className="mb-8">
+          <p className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-pine">
+            GACS Checker
+          </p>
+          <div className="mt-4">
+            <ProgressBar answeredCount={answeredCount} />
+          </div>
+        </header>
+      )}
 
       {step === "checklist" && section && (
         <SectionStep
