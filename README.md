@@ -23,14 +23,43 @@ npm run dev:web      # :5173 (proxies /api → :4000)
 
 Open http://localhost:5173
 
-## Production (Docker on droplet)
+## Production (Docker on the DigitalOcean droplet)
+
+Deployed at **https://gacs.warp.land/** from the `simple` branch.
+
+The droplet runs two containers via `docker-compose.prod.yml`:
+
+- `gacs` — the app (static UI + API), only exposed inside the Docker network
+- `gateway` — nginx terminating TLS with the existing Let's Encrypt certs
+  (`/etc/letsencrypt/live/gacs.warp.land/`) and proxying everything to `gacs:4000`
+
+SQLite is bind-mounted to a host directory (`GACS_DATA_DIR`, default
+`/opt/gacs/data`) so submissions survive redeploys — back up that directory.
+
+### Guided deploy
+
+Run the wizard from your machine; it collects env values and walks through the
+SSH deploy step by step:
 
 ```bash
-cp .env.example .env   # set real values; PUBLIC_WEB_ORIGIN=https://your.domain
-docker compose up -d --build
+./scripts/deploy-droplet.sh
 ```
 
-App listens on port 4000 (static UI + API). Point nginx at it.
+### Manual deploy (on the droplet)
+
+```bash
+cd /opt/gacs/app            # repo checkout
+git fetch origin && git checkout simple && git pull --ff-only origin simple
+cp .env.example .env        # first time only; then edit real values
+mkdir -p /opt/gacs/data
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+If only `deploy/nginx.conf` changed:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --force-recreate gateway
+```
 
 ## Mail template
 

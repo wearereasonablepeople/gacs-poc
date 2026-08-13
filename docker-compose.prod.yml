@@ -1,0 +1,28 @@
+services:
+  gacs:
+    build: .
+    env_file:
+      - .env
+    environment:
+      PORT: "4000"
+      DATABASE_PATH: /data/submissions.sqlite
+      PUBLIC_WEB_ORIGIN: ${PUBLIC_WEB_ORIGIN:-https://gacs.warp.land}
+    expose:
+      - "4000"
+    volumes:
+      # Real persistence: SQLite lives on the host disk. Back up this directory.
+      - ${GACS_DATA_DIR:-/opt/gacs/data}:/data
+    restart: unless-stopped
+
+  gateway:
+    image: nginx:alpine
+    depends_on:
+      - gacs
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot
+    restart: unless-stopped

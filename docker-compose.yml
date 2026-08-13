@@ -10,8 +10,6 @@ services:
       DATABASE_PATH: /data/submissions.sqlite
       PUBLIC_WEB_ORIGIN: ${PUBLIC_WEB_ORIGIN:-http://localhost:4000}
     volumes:
-      - gacs_data:/data
+      # Real persistence: SQLite lives on the host disk, not an anonymous volume.
+      - ${GACS_DATA_DIR:-./data}:/data
     restart: unless-stopped
-
-volumes:
-  gacs_data:
