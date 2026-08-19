@@ -15,7 +15,7 @@ export default function ProgressBar({
     <div>
       <div className="mb-2 flex justify-between text-sm text-ink/60">
         <span>
-          {labelCurrent} van {total}
+          Vraag {labelCurrent} van {total}
         </span>
         <span>{progress}%</span>
       </div>

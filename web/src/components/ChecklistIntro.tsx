@@ -8,8 +8,8 @@ export default function ChecklistIntro() {
         Checklist technische eisen
       </h1>
       <p className="mt-3 text-base text-ink/70">
-        Beantwoord de control points die van toepassing zijn. U mag punten
-        openlaten. Na afloop ontvangt u de resultaten per e-mail.
+        Beantwoord de vragen die van toepassing zijn. U mag vragen openlaten.
+        Na afloop ontvangt u de resultaten per e-mail.
       </p>
     </div>
   );

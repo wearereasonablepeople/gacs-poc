@@ -1,9 +1,11 @@
+import { useEffect } from "react";
 import {
   CHECKLIST_CONTROL_POINT_COUNT,
   CHECKLIST_HERO_ILLUSTRATION,
 } from "@shared/checklist";
 import type { UnansweredSection } from "@shared/scoring";
 import { Loader2 } from "lucide-react";
+import { celebrate } from "../lib/celebrate";
 
 type EmailStepProps = {
   unansweredSections: UnansweredSection[];
@@ -24,6 +26,8 @@ export default function EmailStep({
   onBack,
   onSubmit,
 }: EmailStepProps) {
+  useEffect(() => celebrate(), []);
+
   const unansweredCount = unansweredSections.reduce(
     (n, section) => n + section.controlPoints.length,
     0,
@@ -31,7 +35,8 @@ export default function EmailStep({
 
   return (
     <section className="flex-1">
-      <h2 className="font-display text-3xl text-ink">Ontvang uw resultaten</h2>
+      <h2 className="font-display text-3xl text-ink">Klaar!</h2>
+      <p className="font-display text-3xl text-ink">Ontvang uw resultaten</p>
       <p className="mt-2 text-ink/65">
         Vul uw e-mailadres in. We tonen de score niet op het scherm — u ontvangt
         alles per mail.
@@ -51,7 +56,7 @@ export default function EmailStep({
         <details className="mt-4">
           <summary className="cursor-pointer border-b border-pine/15 py-3 text-sm text-ink">
             U heeft {unansweredCount} van {CHECKLIST_CONTROL_POINT_COUNT}{" "}
-            control points niet beantwoord
+            vragen niet beantwoord
           </summary>
           <div className="space-y-4 py-3">
             {unansweredSections.map((section) => (

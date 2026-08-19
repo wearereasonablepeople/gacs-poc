@@ -4,9 +4,9 @@ import { checklistSections } from "@shared/checklist";
 import { getUnansweredSections } from "@shared/scoring";
 import { fetchChecklist, submitChecklist } from "../api";
 import type { ProviderInfo } from "../api";
-import ChecklistIntro from "../components/ChecklistIntro";
 import ControlPointStep from "../components/ControlPointStep";
 import EmailStep from "../components/EmailStep";
+import SectionCompleteStep from "../components/SectionCompleteStep";
 import SectionIntroStep from "../components/SectionIntroStep";
 import WelcomeStep from "../components/WelcomeStep";
 
@@ -23,6 +23,7 @@ type Step =
   | { type: "welcome" }
   | { type: "section-intro"; sectionIndex: number }
   | { type: "control-point"; sectionIndex: number; controlPointIndex: number }
+  | { type: "section-complete"; sectionIndex: number }
   | { type: "email" };
 
 export default function ChecklistPage() {
@@ -83,7 +84,7 @@ export default function ChecklistPage() {
     }
 
     if (sectionIndex < sections.length - 1) {
-      setStep({ type: "section-intro", sectionIndex: sectionIndex + 1 });
+      setStep({ type: "section-complete", sectionIndex });
       return;
     }
 
@@ -97,6 +98,10 @@ export default function ChecklistPage() {
       return;
     }
     setStep({ type: "email" });
+  }
+
+  function continueFromSectionComplete(sectionIndex: number) {
+    setStep({ type: "section-intro", sectionIndex: sectionIndex + 1 });
   }
 
   function goToPreviousControlPoint(
@@ -157,9 +162,10 @@ export default function ChecklistPage() {
     }
   }
 
-  const showChrome = step.type !== "welcome";
   const activeSection =
-    step.type === "section-intro" || step.type === "control-point"
+    step.type === "section-intro" ||
+    step.type === "control-point" ||
+    step.type === "section-complete"
       ? sections[step.sectionIndex]
       : undefined;
   const activeControlPoint =
@@ -174,8 +180,6 @@ export default function ChecklistPage() {
           onStart={() => setStep({ type: "section-intro", sectionIndex: 0 })}
         />
       )}
-
-      {showChrome && <ChecklistIntro />}
 
       {step.type === "section-intro" && activeSection && (
         <SectionIntroStep
@@ -233,6 +237,15 @@ export default function ChecklistPage() {
             }}
           />
         )}
+
+      {step.type === "section-complete" && activeSection && (
+        <SectionCompleteStep
+          section={activeSection}
+          sectionIndex={step.sectionIndex}
+          sectionCount={sections.length}
+          onContinue={() => continueFromSectionComplete(step.sectionIndex)}
+        />
+      )}
 
       {step.type === "email" && (
         <EmailStep

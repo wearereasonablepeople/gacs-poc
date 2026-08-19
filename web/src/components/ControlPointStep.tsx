@@ -48,10 +48,7 @@ export default function ControlPointStep({
       </div>
 
       <article>
-        <p className="text-xs font-semibold uppercase tracking-wider text-pine/70">
-          {controlPoint.code} · {controlPoint.title}
-        </p>
-        <h3 className="mt-1 text-lg font-semibold text-ink">
+        <h3 className="text-lg font-semibold text-ink">
           {controlPoint.prompt}
         </h3>
         {controlPoint.helpText && (
