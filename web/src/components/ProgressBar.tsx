@@ -1,19 +1,21 @@
-import { CHECKLIST_CONTROL_POINT_COUNT } from "@shared/checklist";
-
 type ProgressBarProps = {
-  answeredCount: number;
+  labelCurrent: number;
+  filled: number;
+  total: number;
 };
 
-export default function ProgressBar({ answeredCount }: ProgressBarProps) {
-  const progress = Math.round(
-    (answeredCount / CHECKLIST_CONTROL_POINT_COUNT) * 100,
-  );
+export default function ProgressBar({
+  labelCurrent,
+  filled,
+  total,
+}: ProgressBarProps) {
+  const progress = total > 0 ? Math.round((filled / total) * 100) : 0;
 
   return (
     <div>
       <div className="mb-2 flex justify-between text-sm text-ink/60">
         <span>
-          {answeredCount} van {CHECKLIST_CONTROL_POINT_COUNT} beantwoord
+          {labelCurrent} van {total}
         </span>
         <span>{progress}%</span>
       </div>
