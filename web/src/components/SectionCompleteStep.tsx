@@ -21,13 +21,13 @@ export default function SectionCompleteStep({
   return (
     <section className="flex flex-1 flex-col">
       <div className="text-center">
-        <p className="text-sm text-ink/50">
+        <p className="text-base text-ink/50">
           Sectie {sectionIndex + 1} van {sectionCount}
         </p>
         <h2 className="mt-2 font-display text-3xl text-ink sm:text-4xl">
           Gefeliciteerd
         </h2>
-        <p className="mt-2 text-base text-ink/70">
+        <p className="mt-2 text-lg text-ink/70">
           U heeft {section.title} afgerond.
         </p>
       </div>
@@ -48,7 +48,7 @@ export default function SectionCompleteStep({
         <button
           type="button"
           onClick={onContinue}
-          className="inline-flex items-center gap-2 rounded-md bg-select px-5 py-2.5 text-sm font-semibold text-white"
+          className="inline-flex items-center gap-2 rounded-md bg-select px-5 py-2.5 text-base font-semibold text-white"
         >
           Volgende sectie
           <ChevronRight className="h-4 w-4" />

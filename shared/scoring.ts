@@ -39,6 +39,7 @@ export type UnansweredControlPoint = {
 
 export type UnansweredSection = {
   sectionId: string;
+  sectionIndex: number;
   sectionTitle: string;
   controlPoints: UnansweredControlPoint[];
 };
@@ -48,17 +49,18 @@ export function getUnansweredSections(
   sections: ChecklistSection[] = checklistSections,
 ): UnansweredSection[] {
   const unanswered: UnansweredSection[] = [];
-  for (const section of sections) {
+  sections.forEach((section, sectionIndex) => {
     const controlPoints = section.controlPoints
       .filter((cp) => !answers[cp.code])
       .map((cp) => ({ code: cp.code, title: cp.title }));
-    if (controlPoints.length === 0) continue;
+    if (controlPoints.length === 0) return;
     unanswered.push({
       sectionId: section.id,
+      sectionIndex,
       sectionTitle: section.title,
       controlPoints,
     });
-  }
+  });
   return unanswered;
 }
 

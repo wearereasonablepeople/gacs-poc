@@ -21,7 +21,7 @@ export default function WelcomeStep({ onStart }: WelcomeStepProps) {
       <button
         type="button"
         onClick={onStart}
-        className="mt-6 ml-auto inline-flex w-fit items-center rounded-md bg-select px-5 py-2.5 text-sm font-semibold text-white"
+        className="mt-6 mx-auto inline-flex w-fit items-center rounded-md bg-select px-5 py-2.5 text-base font-semibold text-white"
       >
         Beginnen
       </button>

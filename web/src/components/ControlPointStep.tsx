@@ -34,10 +34,10 @@ export default function ControlPointStep({
   return (
     <section className="flex-1">
       <div className="mb-6">
-        <p className="text-sm text-ink/50">
+        <p className="text-base text-ink/50">
           Sectie {sectionIndex + 1} van {sectionCount}
         </p>
-        <h2 className="font-display text-2xl text-ink">{sectionTitle}</h2>
+        <h2 className="font-display text-3xl text-ink">{sectionTitle}</h2>
         <div className="mt-4">
           <ProgressBar
             labelCurrent={controlPointIndex + 1}
@@ -48,11 +48,11 @@ export default function ControlPointStep({
       </div>
 
       <article>
-        <h3 className="text-lg font-semibold text-ink">
+        <h3 className="text-xl font-semibold text-ink">
           {controlPoint.prompt}
         </h3>
         {controlPoint.helpText && (
-          <p className="mt-1 text-sm text-ink/55">{controlPoint.helpText}</p>
+          <p className="mt-1 text-base text-ink/55">{controlPoint.helpText}</p>
         )}
         <div className="mt-3 space-y-2">
           {controlPoint.options.map((opt) => {
@@ -74,7 +74,7 @@ export default function ControlPointStep({
                   onClick={() => onSelectOption(opt.id)}
                   onChange={() => {}}
                 />
-                <span className="text-sm leading-snug text-ink">
+                <span className="text-base leading-snug text-ink">
                   {opt.label}
                 </span>
               </label>
@@ -87,14 +87,14 @@ export default function ControlPointStep({
         <button
           type="button"
           onClick={onPrevious}
-          className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-pine"
+          className="inline-flex items-center gap-2 rounded-md pl-0 pr-4 py-2 text-base font-semibold text-pine"
         >
           <ChevronLeft className="h-4 w-4" /> Vorige
         </button>
         <button
           type="button"
           onClick={onSkip}
-          className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-pine"
+          className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-base font-semibold text-pine"
         >
           Overslaan
         </button>

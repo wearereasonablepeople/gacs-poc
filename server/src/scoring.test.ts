@@ -74,6 +74,7 @@ describe("getUnansweredSections", () => {
     assert.deepEqual(getUnansweredSections({}, fixtureSections), [
       {
         sectionId: "sectie-a",
+        sectionIndex: 0,
         sectionTitle: "Sectie A",
         controlPoints: [
           { code: "A.1", title: "Punt A1" },
@@ -82,6 +83,7 @@ describe("getUnansweredSections", () => {
       },
       {
         sectionId: "sectie-b",
+        sectionIndex: 1,
         sectionTitle: "Sectie B",
         controlPoints: [{ code: "B.1", title: "Punt B1" }],
       },
@@ -107,6 +109,7 @@ describe("getUnansweredSections", () => {
       [
         {
           sectionId: "sectie-a",
+          sectionIndex: 0,
           sectionTitle: "Sectie A",
           controlPoints: [{ code: "A.2", title: "Punt A2" }],
         },

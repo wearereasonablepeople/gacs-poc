@@ -13,7 +13,7 @@ export default function ProgressBar({
 
   return (
     <div>
-      <div className="mb-2 flex justify-between text-sm text-ink/60">
+      <div className="mb-2 flex justify-between text-base text-ink/60">
         <span>
           Vraag {labelCurrent} van {total}
         </span>
